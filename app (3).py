@@ -6,7 +6,7 @@ import os
 # Sayfa Konfigürasyonu
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="SATIŞ & MÜŞTERİ PANELİ",
+    page_title="HEDEF AVM KOTA TAKİP",
     page_icon="🏆",
     layout="wide"
 )
