@@ -489,17 +489,8 @@
             <div>
               <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Excel Dosyası Yükle & Sayfaya Aktar</h3>
               <p class="text-xs sm:text-sm text-slate-500 mt-1">
-                Excel tablonuz otomatik olarak Google Sheets'e işlenir, oranlar hesaplanır ve tüm şubelere anında canlı yayınlanır.
+                Yüklediğiniz Excel tablosundaki veriler doğrudan güncel ayın sayfasına otomatik işlenir ve tüm şubelere canlı yayınlanır.
               </p>
-            </div>
-
-            <!-- Hedef Ay Belirleme -->
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Hangi Aya İşlensin?</label>
-              <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <input type="text" id="uploadMonthInput" value="" placeholder="Örn: KASIM 2026, ARALIK 2026" class="flex-grow bg-slate-50 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3 text-xs sm:text-sm font-bold uppercase focus:outline-none focus:ring-2 focus:ring-rose-500">
-                <span class="text-[11px] text-slate-400 font-semibold self-center sm:self-auto">Sayfa yoksa otomatik açılır</span>
-              </div>
             </div>
 
             <!-- Sürükle Bırak / Dosya Seçme Alanı -->
@@ -661,7 +652,6 @@
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
       const currentMonth = getDefaultCurrentMonth();
-      document.getElementById("uploadMonthInput").value = currentMonth;
       
       const bSelect = document.getElementById("branchMonthSelect");
       bSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
@@ -730,7 +720,6 @@
       });
 
       currentAdminMonth = (activeMonth && !activeMonth.toLowerCase().startsWith("sayfa")) ? activeMonth : validMonths[0];
-      document.getElementById("uploadMonthInput").value = currentAdminMonth;
     }
 
     // ==========================================
@@ -1320,17 +1309,15 @@
         return;
       }
 
-      let targetMonth = document.getElementById("uploadMonthInput").value.trim().toLocaleUpperCase('tr-TR');
-      if (!targetMonth || targetMonth.startsWith("SAYFA")) {
-        targetMonth = getDefaultCurrentMonth();
-      }
+      // Her zaman o anki güncel ay sayfasına otomatik işlenir
+      const targetMonth = getDefaultCurrentMonth();
 
       const btn = document.getElementById("btnSendToSheets");
       const btnText = document.getElementById("btnSendText");
       const spinner = document.getElementById("uploadSpinner");
 
       btn.disabled = true;
-      btnText.textContent = "Google Sheets'e Yazılıyor...";
+      btnText.textContent = `${targetMonth} Sayfasına Yazılıyor...`;
       spinner.classList.remove("hidden");
 
       try {
@@ -1347,7 +1334,7 @@
           });
           const result = await res.json();
           if (result.success) {
-            showToast(`${targetMonth} başarıyla yüklendi!`, "success");
+            showToast(`${targetMonth} sayfası başarıyla güncellendi!`, "success");
             clearSelectedFile();
             switchAdminTab("table");
             fetchInitialBranchesAndMonths();
