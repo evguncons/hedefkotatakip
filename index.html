@@ -638,13 +638,17 @@
 
   <!-- JAVASCRIPT KODLARI -->
   <script>
-    // ==========================================
-    // 1. GLOBAL STATE & LOCAL STORAGE
-    // ==========================================
+    // Güncel Ay ve Yılı Türkçe dinamik üretir (Örn: KASIM 2026)
+    function getDefaultCurrentMonth() {
+      const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+      const d = new Date();
+      return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
     const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwgob1veFjUG7lI7f4NB6FxO94dGepdH64CYiCJdZLdfaj_hFCj7fZQ8s1s0pJqA3eH/exec";
     let API_URL = localStorage.getItem("HEDEF_API_URL") || DEFAULT_API_URL;
     let currentAdminPassword = "";
-    let currentAdminMonth = "EKİM 2026";
+    let currentAdminMonth = getDefaultCurrentMonth();
     let pendingUploadRows = [];
 
     // Örnek Yedek Veri (Bağlantı henüz kurulmamışsa demo olarak çalışır)
@@ -668,6 +672,16 @@
     // 2. SAYFA YÜKLENDİĞİNDE
     // ==========================================
     document.addEventListener("DOMContentLoaded", () => {
+      // Varsayılan ay adlarını dinamik olarak bugünün ayına ayarla (Örn: KASIM 2026)
+      const currentMonth = getDefaultCurrentMonth();
+      document.getElementById("uploadMonthInput").value = currentMonth;
+      
+      const bSelect = document.getElementById("branchMonthSelect");
+      bSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
+
+      const aSelect = document.getElementById("adminMonthSelect");
+      aSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
+
       checkApiStatus();
       if (API_URL) {
         fetchInitialBranchesAndMonths();
@@ -743,20 +757,31 @@
       bSelect.innerHTML = "";
       aSelect.innerHTML = "";
 
-      months.forEach(m => {
+      // "Sayfa1" veya "Sheet1" gibi varsayılan boş isimleri filtrele
+      const validMonths = (months || []).filter(m => {
+        const low = m.toLowerCase();
+        return !low.startsWith("sayfa") && !low.startsWith("sheet") && m !== "SİSTEM_AYARLAR";
+      });
+
+      if (validMonths.length === 0) {
+        validMonths.push(getDefaultCurrentMonth());
+      }
+
+      validMonths.forEach(m => {
         const opt1 = document.createElement("option");
         opt1.value = m;
         opt1.textContent = m;
-        if (m === activeMonth) opt1.selected = true;
+        if (m === activeMonth || (!activeMonth && m === validMonths[0])) opt1.selected = true;
         bSelect.appendChild(opt1);
 
         const opt2 = document.createElement("option");
         opt2.value = m;
         opt2.textContent = m;
-        if (m === activeMonth) opt2.selected = true;
+        if (m === activeMonth || (!activeMonth && m === validMonths[0])) opt2.selected = true;
         aSelect.appendChild(opt2);
       });
-      currentAdminMonth = activeMonth || months[0] || "EKİM 2026";
+
+      currentAdminMonth = (activeMonth && !activeMonth.toLowerCase().startsWith("sayfa")) ? activeMonth : validMonths[0];
       document.getElementById("uploadMonthInput").value = currentAdminMonth;
     }
 
