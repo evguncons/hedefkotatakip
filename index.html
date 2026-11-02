@@ -132,25 +132,18 @@
           </div>
         </div>
 
-        <!-- Sağ Taraf: Mod Değiştirici Segment & Ayarlar -->
+        <!-- Sağ Taraf: Mod Değiştirici Segment (Şube / Yönetici) -->
         <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-          <!-- Segmented Control (Şube / Yönetici) -->
           <div class="bg-slate-100/90 p-1 rounded-2xl flex items-center border border-slate-200/60">
             <button id="navBranchBtn" onclick="switchMainView('branch')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-white text-rose-600 shadow-sm flex items-center space-x-1.5">
               <i class="fa-solid fa-store text-xs"></i>
-              <span class="hidden xs:inline">Şube</span>
-              <span class="xs:hidden">Şube</span>
+              <span>Şube</span>
             </button>
             <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
               <i class="fa-solid fa-shield-halved text-xs"></i>
               <span>Yönetici</span>
             </button>
           </div>
-
-          <!-- API Ayar Butonu -->
-          <button onclick="openApiModal()" title="Google Sheets API Bağlantı Ayarı" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center transition active:scale-95">
-            <i class="fa-solid fa-sliders text-xs sm:text-sm"></i>
-          </button>
         </div>
 
       </div>
@@ -161,22 +154,6 @@
   <!-- 2. ANA İÇERİK ALANI -->
   <!-- ================================================================= -->
   <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
-
-    <!-- API Eksik Uyarı Kartı -->
-    <div id="apiWarningBanner" class="hidden mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-soft">
-      <div class="flex items-center space-x-3.5">
-        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0 text-base">
-          <i class="fa-solid fa-cloud-arrow-down"></i>
-        </div>
-        <div>
-          <h4 class="text-xs sm:text-sm font-bold text-amber-900">Google Sheets Web App Bağlantısı Gerekli</h4>
-          <p class="text-[11px] sm:text-xs text-amber-700/90 mt-0.5">Canlı veri senkronizasyonu için sağ üstteki ayarlar simgesinden URL'nizi bağlayın.</p>
-        </div>
-      </div>
-      <button onclick="openApiModal()" class="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold rounded-xl transition shadow-sm text-center">
-        Hemen Bağla
-      </button>
-    </div>
 
     <!-- ================================================================= -->
     <!-- BÖLÜM 1: ŞUBE GİRİŞİ & DASHBOARD -->
@@ -301,105 +278,53 @@
           </div>
         </div>
 
-        <!-- 3 BÜYÜK KPI KARTI (MOBİLDE TEK SÜTUN, TABLETTE 2, DESKTOPTA 3 SÜTUN) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <!-- SADECE GERÇEKLEŞME ORANI EKRANI (Finansal tutarlar şube gizliliği için kaldırıldı) -->
+        <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-card border border-slate-100 text-center relative overflow-hidden">
           
-          <!-- Kart 1: Hedef Kota -->
-          <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100 relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-3">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Aylık Hedef Kota</span>
-              <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
-                <i class="fa-solid fa-bullseye"></i>
+          <div class="max-w-md mx-auto space-y-6">
+            
+            <div class="inline-flex items-center space-x-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-xs font-bold border border-rose-200/50">
+              <i class="fa-solid fa-chart-pie text-xs"></i>
+              <span>Kota Gerçekleşme Performansı</span>
+            </div>
+
+            <!-- Devasa Odak Oran Göstergesi -->
+            <div class="bg-gradient-to-br from-rose-600 via-rose-600 to-red-700 text-white rounded-3xl p-8 sm:p-10 shadow-glow-red relative overflow-hidden">
+              <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-sm pointer-events-none"></div>
+              
+              <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-rose-100 block mb-2">GERÇEKLEŞME ORANI</span>
+              
+              <div class="flex items-baseline justify-center space-x-1.5 my-2">
+                <span class="text-2xl sm:text-3xl font-bold text-rose-200">%</span>
+                <span id="dashOranVal" class="text-5xl sm:text-6xl font-black tracking-tight">0,00</span>
+              </div>
+              
+              <p class="text-xs text-rose-100/90 font-medium mt-3">Kotanın yüzde kaçının tamamlandığını gösterir</p>
+            </div>
+
+            <!-- İlerleme Çubuğu -->
+            <div class="space-y-2 pt-2">
+              <div class="flex justify-between items-center text-xs sm:text-sm font-bold text-slate-700 px-1">
+                <span>Tamamlanma Durumu</span>
+                <span id="dashProgressLabel" class="text-rose-600 font-extrabold">%0,00 tamamlandı</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-2xl h-4 sm:h-5 p-1 overflow-hidden border border-slate-200/50">
+                <div id="dashProgressBar" class="h-full bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 rounded-xl transition-all duration-1000 shine-effect" style="width: 0%"></div>
               </div>
             </div>
-            <div id="dashKotaVal" class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              0 ₺
-            </div>
-            <p class="text-[11px] text-slate-400 mt-2 font-medium">Bu dönem için belirlenen kota</p>
-          </div>
 
-          <!-- Kart 2: Net Peşinat Toplamı -->
-          <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100 relative overflow-hidden">
-            <div class="flex items-center justify-between text-slate-400 mb-3">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Net Peşinat Toplam</span>
-              <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">
-                <i class="fa-solid fa-hand-holding-dollar"></i>
-              </div>
-            </div>
-            <div id="dashPesinatVal" class="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">
-              0 ₺
-            </div>
-            <p class="text-[11px] text-slate-400 mt-2 font-medium">Gerçekleşen toplam net peşinat</p>
-          </div>
-
-          <!-- Kart 3: Oran (%) (Net Peşinat / Kota) -->
-          <div class="bg-gradient-to-br from-rose-600 via-rose-600 to-red-700 text-white rounded-3xl p-5 sm:p-6 shadow-glow-red relative overflow-hidden sm:col-span-2 lg:col-span-1">
-            <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-sm"></div>
-            <div class="flex items-center justify-between text-rose-200 mb-3">
-              <span class="text-xs font-extrabold uppercase tracking-wider text-rose-100">Gerçekleşme Oranı</span>
-              <div class="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center text-sm backdrop-blur-sm">
-                <i class="fa-solid fa-percent"></i>
-              </div>
-            </div>
-            <div class="flex items-baseline space-x-1">
-              <span class="text-lg font-bold text-rose-200">%</span>
-              <span id="dashOranVal" class="text-3xl sm:text-4xl font-black tracking-tight">0,00</span>
-            </div>
-            <p class="text-[11px] text-rose-100/90 mt-2 font-medium flex items-center space-x-1">
-              <i class="fa-solid fa-calculator text-[10px]"></i>
-              <span>(Net Peşinat ÷ Kota)</span>
-            </p>
-          </div>
-
-        </div>
-
-        <!-- İlerleme Çubuğu ve Ekstra İstatistikler -->
-        <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 space-y-6">
-          
-          <!-- İlerleme Barı Başlık & Yüzde -->
-          <div>
-            <div class="flex justify-between items-center text-xs sm:text-sm font-bold mb-2.5">
-              <span class="text-slate-800 flex items-center space-x-2">
-                <i class="fa-solid fa-chart-line text-rose-600"></i>
-                <span>Kota Tamamlanma Performansı</span>
+            <!-- Alt Bilgi Rozeti -->
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
+                <span>Son Güncelleme: <strong id="dashLastUpdated" class="text-slate-700">Bugün</strong></span>
               </span>
-              <span id="dashProgressLabel" class="text-rose-600 font-extrabold">%0,00 tamamlandı</span>
-            </div>
-            <!-- Bar -->
-            <div class="w-full bg-slate-100 rounded-2xl h-4 sm:h-5 p-1 overflow-hidden border border-slate-200/50">
-              <div id="dashProgressBar" class="h-full bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 rounded-xl transition-all duration-1000 shine-effect" style="width: 0%"></div>
-            </div>
-          </div>
-
-          <!-- Alt Detay Rozetleri -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-4 border-t border-slate-100">
-            <div class="bg-slate-50 rounded-2xl p-4 flex items-center space-x-3.5 border border-slate-100">
-              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-base flex-shrink-0">
-                <i class="fa-solid fa-flag-checkered"></i>
-              </div>
-              <div class="min-w-0">
-                <span class="text-[11px] text-slate-500 font-semibold block">Kotaya Kalan Tutar</span>
-                <p id="dashKalanVal" class="text-sm sm:text-base font-extrabold text-slate-900 truncate">0 ₺</p>
-              </div>
+              <span class="flex items-center space-x-1 text-emerald-600">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Güncel</span>
+              </span>
             </div>
 
-            <div class="bg-slate-50 rounded-2xl p-4 flex items-center space-x-3.5 border border-slate-100">
-              <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-base flex-shrink-0">
-                <i class="fa-solid fa-clock-rotate-left"></i>
-              </div>
-              <div class="min-w-0">
-                <span class="text-[11px] text-slate-500 font-semibold block">Son Güncelleme</span>
-                <p id="dashLastUpdated" class="text-sm sm:text-base font-extrabold text-slate-900 truncate">Bugün</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Gizlilik Güvencesi -->
-          <div class="bg-rose-50/60 border border-rose-100 rounded-2xl p-4 flex items-start space-x-3 text-xs text-rose-900">
-            <i class="fa-solid fa-shield-halved text-rose-600 text-base mt-0.5 flex-shrink-0"></i>
-            <div class="text-[11px] sm:text-xs leading-relaxed">
-              <strong class="font-bold">Şube Gizlilik Güvencesi:</strong> Bu ekranda yalnızca kendi şubenizin verileri yer alır. Diğer şubelerin kota veya peşinat verileri şube güvenliği kapsamında gizlidir.
-            </div>
           </div>
 
         </div>
@@ -498,28 +423,24 @@
         <!-- SEKME 1: TÜM ŞUBELER TABLOSU -->
         <div id="adminTabTable" class="space-y-4 sm:space-y-6">
           
-          <!-- 3 Üst Özet Kartı -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
-            <div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-card">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Toplam Hedef Kota</span>
-              <p id="totalKotaBadge" class="text-xl sm:text-2xl font-black text-slate-900 mt-1">45.000.000 ₺</p>
-            </div>
-            <div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-card">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Toplam Net Peşinat</span>
-              <p id="totalPesinatBadge" class="text-xl sm:text-2xl font-black text-emerald-600 mt-1">880.192,00 ₺</p>
-            </div>
-            <div class="bg-white rounded-3xl p-5 border border-slate-100 shadow-card">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Genel Gerçekleşme Oranı</span>
-              <p id="totalOranBadge" class="text-xl sm:text-2xl font-black text-rose-600 mt-1">%1,96</p>
+          <!-- Üst Özet: Sadece Genel Gerçekleşme Oranı -->
+          <div class="max-w-md mx-auto">
+            <div class="bg-gradient-to-br from-rose-600 via-rose-600 to-red-700 text-white rounded-3xl p-6 sm:p-7 shadow-glow-red text-center relative overflow-hidden">
+              <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-sm pointer-events-none"></div>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-rose-100 block mb-1">GENEL GERÇEKLEŞME ORANI</span>
+              <div class="flex items-baseline justify-center space-x-1 my-1">
+                <span class="text-2xl font-bold text-rose-200">%</span>
+                <span id="totalOranBadge" class="text-4xl sm:text-5xl font-black tracking-tight">0,00</span>
+              </div>
+              <p class="text-xs text-rose-100/90 font-medium mt-1">Tüm Şubeler Toplam Oranı</p>
             </div>
           </div>
 
           <!-- Tablo Konteyneri & Araç Çubuğu -->
           <div class="bg-white rounded-3xl shadow-card border border-slate-100 overflow-hidden">
             
-            <!-- Araç Çubuğu: Hızlı Arama & İndir -->
+            <!-- Araç Çubuğu -->
             <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <!-- Arama Girişi -->
               <div class="relative flex-grow max-w-xs">
                 <input type="text" id="branchSearchInput" oninput="filterBranchTable(this.value)" placeholder="Şube ara..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500">
                 <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
@@ -527,7 +448,6 @@
                 </div>
               </div>
 
-              <!-- Butonlar -->
               <div class="flex items-center space-x-2">
                 <button onclick="sortBranchesByOran()" id="btnSortOran" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 flex-1 sm:flex-initial justify-center">
                   <i class="fa-solid fa-arrow-down-wide-short text-xs"></i>
@@ -540,16 +460,14 @@
               </div>
             </div>
 
-            <!-- Tablo (Desktop & Tablet) -->
+            <!-- Tablo (SADECE ŞUBE ADI, ORAN VE DURUM) -->
             <div class="overflow-x-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm" id="mainAdminTable">
                 <thead>
                   <tr class="bg-slate-100/80 text-slate-600 uppercase font-bold text-[11px] border-b border-slate-200">
                     <th class="px-4 sm:px-6 py-3.5">Mağaza Adı</th>
-                    <th class="px-4 sm:px-6 py-3.5 text-right">kota</th>
-                    <th class="px-4 sm:px-6 py-3.5 text-right">Net Peşinat Toplam</th>
-                    <th class="px-4 sm:px-6 py-3.5 text-center">Oran</th>
-                    <th class="px-4 sm:px-6 py-3.5 text-left w-36 sm:w-44">Durum</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-center">Gerçekleşme Oranı</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-left w-44 sm:w-60">Performans Durumu</th>
                   </tr>
                 </thead>
                 <tbody id="adminTableBody" class="divide-y divide-slate-100 font-medium">
@@ -620,9 +538,7 @@
                   <thead class="bg-slate-100 sticky top-0 font-bold text-slate-700">
                     <tr>
                       <th class="p-2.5">Mağaza</th>
-                      <th class="p-2.5 text-right">Kota</th>
-                      <th class="p-2.5 text-right">Net Peşinat</th>
-                      <th class="p-2.5 text-center">Oran</th>
+                      <th class="p-2.5 text-center">Hesaplanan Oran</th>
                     </tr>
                   </thead>
                   <tbody id="previewTableBody" class="divide-y divide-slate-100">
@@ -647,7 +563,7 @@
           <div class="bg-white rounded-3xl p-5 sm:p-8 shadow-card border border-slate-100 space-y-6">
             <div>
               <h3 class="text-base sm:text-lg font-black text-slate-900">Şube Giriş Şifreleri</h3>
-              <p class="text-xs text-slate-500 mt-0.5">Personellerin kendi şubelerine giriş yapabilmeleri için belirlenen şifreler.</p>
+              <p class="text-xs text-slate-500 mt-0.5">Şifreyi kutucuğa yazıp yanındaki onay (✔) butonuna basarak Google Sheets'e anında kaydedebilirsiniz.</p>
             </div>
 
             <!-- Şifre Arama -->
@@ -682,49 +598,6 @@
 
   </main>
 
-  <!-- ================================================================= -->
-  <!-- 3. AYARLAR & API MODAL -->
-  <!-- ================================================================= -->
-  <div id="apiConfigModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center space-x-3">
-          <div class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
-            <i class="fa-solid fa-link"></i>
-          </div>
-          <div>
-            <h3 class="text-base font-bold text-slate-900">Google Sheets API Ayarı</h3>
-            <p class="text-xs text-slate-400">Apps Script Web App Entegrasyonu</p>
-          </div>
-        </div>
-        <button onclick="closeApiModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Web App URL</label>
-          <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-rose-500">
-        </div>
-
-        <div class="bg-slate-50 rounded-2xl p-4 text-xs text-slate-600 space-y-1.5 border border-slate-100">
-          <p class="font-bold text-slate-800"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> Otomatik Kayıt:</p>
-          <p>• Bu bağlantı adresi doğrudan tarayıcınıza kaydedilir ve Netlify yayınınızda otomatik kullanılır.</p>
-        </div>
-      </div>
-
-      <div class="flex items-center justify-end space-x-2 pt-2">
-        <button onclick="closeApiModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-          Vazgeç
-        </button>
-        <button onclick="saveApiUrl()" class="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 active:scale-95 rounded-xl shadow-glow-red transition">
-          Kaydet & Bağlan
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- TOAST BİLDİRİM BİLEŞENİ -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full px-4"></div>
 
@@ -756,8 +629,8 @@
       "DÜZCE": "5263"
     };
 
-    const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwgob1veFjUG7lI7f4NB6FxO94dGepdH64CYiCJdZLdfaj_hFCj7fZQ8s1s0pJqA3eH/exec";
-    let API_URL = localStorage.getItem("HEDEF_API_URL") || DEFAULT_API_URL;
+    // Google Apps Script Web App Bağlantı Adresi
+    const API_URL = "https://script.google.com/macros/s/AKfycbwgob1veFjUG7lI7f4NB6FxO94dGepdH64CYiCJdZLdfaj_hFCj7fZQ8s1s0pJqA3eH/exec";
     let currentAdminPassword = "";
     let currentAdminMonth = getDefaultCurrentMonth();
     let currentAdminBranches = [];
@@ -796,44 +669,8 @@
       const aSelect = document.getElementById("adminMonthSelect");
       aSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
 
-      checkApiStatus();
-      if (API_URL) {
-        fetchInitialBranchesAndMonths();
-      }
+      fetchInitialBranchesAndMonths();
     });
-
-    function checkApiStatus() {
-      const banner = document.getElementById("apiWarningBanner");
-      if (!API_URL || API_URL.trim() === "") {
-        banner.classList.remove("hidden");
-      } else {
-        banner.classList.add("hidden");
-      }
-    }
-
-    // ==========================================
-    // API MODAL
-    // ==========================================
-    function openApiModal() {
-      document.getElementById("apiUrlInput").value = API_URL;
-      document.getElementById("apiConfigModal").classList.remove("hidden");
-    }
-
-    function closeApiModal() {
-      document.getElementById("apiConfigModal").classList.add("hidden");
-    }
-
-    function saveApiUrl() {
-      const input = document.getElementById("apiUrlInput").value.trim();
-      API_URL = input;
-      localStorage.setItem("HEDEF_API_URL", API_URL);
-      closeApiModal();
-      checkApiStatus();
-      showToast("API Bağlantısı güncellendi", "success");
-      if (API_URL) {
-        fetchInitialBranchesAndMonths();
-      }
-    }
 
     // ==========================================
     // ŞUBE & DÖNEM LİSTESİNİ ÇEKME
@@ -1011,12 +848,8 @@
       document.getElementById("dashBranchTitle").textContent = `${data.branch} ŞUBESİ`;
       document.getElementById("dashMonthBadge").textContent = data.month;
       
-      document.getElementById("dashKotaVal").textContent = formatMoney(data.kota);
-      document.getElementById("dashPesinatVal").textContent = formatMoney(data.netPesinat, true);
+      // Sadece Oran (%) gösterilir
       document.getElementById("dashOranVal").textContent = formatPercent(data.oran);
-
-      const kalan = Math.max(0, data.kota - data.netPesinat);
-      document.getElementById("dashKalanVal").textContent = formatMoney(kalan, true);
       document.getElementById("dashLastUpdated").textContent = data.lastUpdated || "Bugün";
 
       // İlerleme Barı
@@ -1133,7 +966,7 @@
       tfoot.innerHTML = "";
 
       if (!branches || branches.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400 font-semibold">Bu döneme ait kota verisi bulunamadı.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-400 font-semibold">Bu döneme ait kota verisi bulunamadı.</td></tr>`;
         return;
       }
 
@@ -1144,34 +977,30 @@
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
         tr.innerHTML = `
-          <td class="px-4 sm:px-6 py-3.5 font-bold text-slate-900">${b.name}</td>
-          <td class="px-4 sm:px-6 py-3.5 text-right font-mono font-medium text-slate-700">${formatMoney(b.kota)}</td>
-          <td class="px-4 sm:px-6 py-3.5 text-right font-mono font-extrabold text-emerald-700">${formatMoney(b.netPesinat, true)}</td>
-          <td class="px-4 sm:px-6 py-3.5 text-center font-black text-rose-600">%${formatPercent(b.oran)}</td>
-          <td class="px-4 sm:px-6 py-3.5">
-            <div class="w-full bg-slate-200/70 rounded-full h-2 overflow-hidden">
-              <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full rounded-full" style="width: ${progressWidth}%"></div>
+          <td class="px-4 sm:px-6 py-4 font-bold text-slate-900 text-sm sm:text-base">${b.name}</td>
+          <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-600 text-base sm:text-lg">%${formatPercent(b.oran)}</td>
+          <td class="px-4 sm:px-6 py-4">
+            <div class="flex items-center space-x-3">
+              <div class="flex-grow bg-slate-200/70 rounded-full h-2.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full rounded-full" style="width: ${progressWidth}%"></div>
+              </div>
+              <span class="text-xs font-bold text-slate-400 w-12 text-right">%${formatPercent(b.oran)}</span>
             </div>
           </td>
         `;
         tbody.appendChild(tr);
       });
 
-      // Genel Toplam Satırı
+      // Genel Toplam Satırı (Sadece Oran)
       if (totals) {
-        document.getElementById("totalKotaBadge").textContent = formatMoney(totals.kota);
-        document.getElementById("totalPesinatBadge").textContent = formatMoney(totals.netPesinat, true);
-        document.getElementById("totalOranBadge").textContent = `%${formatPercent(totals.oran)}`;
+        document.getElementById("totalOranBadge").textContent = formatPercent(totals.oran);
 
         const trFoot = document.createElement("tr");
         trFoot.className = "bg-slate-100/90 border-t-2 border-slate-300";
         trFoot.innerHTML = `
-          <td class="px-4 sm:px-6 py-4 font-black text-slate-900">${totals.name || 'GENEL TOPLAM'}</td>
-          <td class="px-4 sm:px-6 py-4 text-right font-mono font-black text-slate-900">${formatMoney(totals.kota)}</td>
-          <td class="px-4 sm:px-6 py-4 text-right font-mono font-black text-emerald-700">${formatMoney(totals.netPesinat, true)}</td>
-          <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-700 text-sm sm:text-base">%${formatPercent(totals.oran)}</td>
-          <td class="px-4 sm:px-6 py-4 text-[11px] text-slate-500 font-bold hidden sm:table-cell">Tüm Şubeler İcmali</td>
-          <td class="px-4 sm:px-6 py-4 text-[11px] text-slate-500 font-bold sm:hidden">İcmal</td>
+          <td class="px-4 sm:px-6 py-4 font-black text-slate-900 text-base">${totals.name || 'GENEL TOPLAM'}</td>
+          <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-700 text-lg sm:text-xl">%${formatPercent(totals.oran)}</td>
+          <td class="px-4 sm:px-6 py-4 text-xs text-slate-500 font-bold">Tüm Şubeler Genel Ortalama</td>
         `;
         tfoot.appendChild(trFoot);
       }
@@ -1199,7 +1028,7 @@
       renderAdminTable(currentAdminBranches, currentAdminTotals);
     }
 
-    // Şube Şifrelerini Listeleme & Filtreleme
+    // Şube Şifrelerini Listeleme
     let allLoadedPasswords = [];
     function renderBranchPasswords(passwords) {
       allLoadedPasswords = passwords || [];
@@ -1464,8 +1293,6 @@
             const tr = document.createElement("tr");
             tr.innerHTML = `
               <td class="p-2.5 font-bold">${r.branch}</td>
-              <td class="p-2.5 text-right font-mono">${formatMoney(r.kota)}</td>
-              <td class="p-2.5 text-right font-mono text-emerald-700">${formatMoney(r.netPesinat, true)}</td>
               <td class="p-2.5 text-center font-bold text-rose-600">%${formatPercent(r.oran)}</td>
             `;
             tbody.appendChild(tr);
