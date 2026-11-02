@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hedef AVM - Şube Kota ve Net Peşinat Takip Sistemi</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- SheetJS (Excel & CSV okuyucu) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            hedef: {
+              red: '#e11d48',
+              redHover: '#be123c',
+              dark: '#0f172a',
+              card: '#1e293b',
+              lightGray: '#f8fafc',
+              border: '#e2e8f0',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #f1f5f9;
+      color: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+    .progress-bar-shine {
+      position: relative;
+      overflow: hidden;
+    }
+    .progress-bar-shine::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0; right: 0;
+      background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+      animation: shine 2s infinite;
+    }
+    @keyframes shine {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans">
+
+  <!-- ÜST HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-red-500 flex items-center justify-center text-white shadow-md shadow-rose-200 font-extrabold text-xl tracking-wider">
+          H
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-800 leading-tight">HEDEF AVM</h1>
+          <p class="text-xs text-slate-500 font-medium">Kota & Net Peşinat Takip Portalı</p>
+        </div>
+      </div>
+
+      <!-- Mod Değiştirici Butonları ve Ayarlar -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <div class="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-semibold">
+          <button id="navBranchBtn" onclick="switchMainView('branch')" class="px-3 py-1.5 rounded-lg transition-all duration-200 bg-white text-rose-600 shadow-sm flex items-center space-x-1.5">
+            <i class="fa-solid fa-store"></i>
+            <span>Şube Girişi</span>
+          </button>
+          <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-3 py-1.5 rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Yönetici</span>
+          </button>
+        </div>
+
+        <button onclick="openApiModal()" title="Google Sheets API Bağlantı Ayarı" class="w-9 h-9 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center transition">
+          <i class="fa-solid fa-gear text-sm"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ANA İÇERİK ALANI -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+    <!-- BİLGİLENDİRME / API UYARI BANNER (Eğer API URL tanımlı değilse) -->
+    <div id="apiWarningBanner" class="hidden mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 shadow-sm">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div>
+          <h4 class="text-sm font-bold">Google Apps Script Web App URL Tanımlı Değil</h4>
+          <p class="text-xs text-amber-700">Canlı Sheets verilerini okumak ve yazmak için Apps Script Web App bağlantı adresinizi giriniz.</p>
+        </div>
+      </div>
+      <button onclick="openApiModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium rounded-lg transition shadow-sm whitespace-nowrap">
+        Bağlantıyı Ayarla
+      </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 1. ŞUBE GİRİŞ EKRANI & PANELİ -->
+    <!-- ========================================== -->
+    <div id="branchSection" class="transition-all duration-300">
+      
+      <!-- Şube Giriş Kartı -->
+      <div id="branchLoginForm" class="max-w-md mx-auto my-8">
+        <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10">
+          <div class="text-center mb-8">
+            <div class="w-14 h-14 bg-rose-50 text-rose-600 rounded-2xl mx-auto flex items-center justify-center text-2xl mb-4 shadow-sm">
+              <i class="fa-solid fa-shop"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-800">Şube Girişi</h2>
+            <p class="text-sm text-slate-500 mt-1">Lütfen şubenizi seçin ve şifrenizi girin</p>
+          </div>
+
+          <form id="branchAuthForm" onsubmit="handleBranchLogin(event)" class="space-y-5">
+            <!-- Dönem Seçimi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Dönem (Ay)</label>
+              <div class="relative">
+                <select id="branchMonthSelect" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition appearance-none cursor-pointer font-medium">
+                  <option value="EKİM 2026">EKİM 2026</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                  <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Şube Adı Seçimi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Şube Adı</label>
+              <div class="relative">
+                <select id="branchNameSelect" required class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition appearance-none cursor-pointer font-medium">
+                  <option value="" disabled selected>Şubenizi Seçiniz...</option>
+                  <option value="PAŞABAHÇE">PAŞABAHÇE</option>
+                  <option value="KAVACIK">KAVACIK</option>
+                  <option value="YENİDOĞAN">YENİDOĞAN</option>
+                  <option value="ÇEKMEKÖY">ÇEKMEKÖY</option>
+                  <option value="SULTANBEYLİ">SULTANBEYLİ</option>
+                  <option value="KÖRFEZ">KÖRFEZ</option>
+                  <option value="İZMİT">İZMİT</option>
+                  <option value="DERİNCE">DERİNCE</option>
+                  <option value="GÖLCÜK">GÖLCÜK</option>
+                  <option value="İNEGÖL">İNEGÖL</option>
+                  <option value="ÇAYIROVA">ÇAYIROVA</option>
+                  <option value="GEBZE">GEBZE</option>
+                  <option value="DÜZCE">DÜZCE</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                  <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Şifre -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Şube Şifresi</label>
+              <div class="relative">
+                <input type="password" id="branchPasswordInput" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition font-medium">
+                <button type="button" onclick="togglePasswordVisibility('branchPasswordInput', 'branchEyeIcon')" class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-slate-600">
+                  <i id="branchEyeIcon" class="fa-solid fa-eye text-sm"></i>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1.5 flex items-center space-x-1">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Varsayılan şube şifresi: <strong class="text-slate-600">1234</strong></span>
+              </p>
+            </div>
+
+            <!-- Giriş Butonu -->
+            <button type="submit" id="branchSubmitBtn" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-rose-200 transition duration-200 flex items-center justify-center space-x-2 text-sm mt-2">
+              <span id="branchBtnText">Kotamı & Oranımı Gör</span>
+              <i id="branchBtnIcon" class="fa-solid fa-arrow-right text-xs"></i>
+              <div id="branchSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Şube Dashboard Ekranı (Başarılı Girişte Açılır) -->
+      <div id="branchDashboard" class="hidden max-w-4xl mx-auto space-y-6">
+        
+        <!-- Üst Başlık & Çıkış Kartı -->
+        <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-2xl font-bold">
+              <i class="fa-solid fa-store"></i>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold uppercase tracking-wider px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg" id="dashMonthBadge">EKİM 2026</span>
+                <span class="text-xs font-semibold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md">Canlı Veri</span>
+              </div>
+              <h2 id="dashBranchTitle" class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">PAŞABAHÇE ŞUBESİ</h2>
+            </div>
+          </div>
+
+          <button onclick="logoutBranch()" class="px-4 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-xl text-sm font-semibold transition flex items-center space-x-2">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+            <span>Çıkış Yap</span>
+          </button>
+        </div>
+
+        <!-- 3 Büyük KPI Kartı (Referans 2'ye göre: Kota, Net Peşinat, Oran) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+          
+          <!-- Kart 1: Hedef Kota -->
+          <div class="bg-white rounded-3xl p-6 shadow-lg shadow-slate-200/40 border border-slate-100 relative overflow-hidden">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-50 rounded-full opacity-60"></div>
+            <div class="flex items-center justify-between text-slate-400 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Hedef Kota</span>
+              <div class="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
+                <i class="fa-solid fa-bullseye"></i>
+              </div>
+            </div>
+            <div id="dashKotaVal" class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              0 ₺
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Bu ay için belirlenen toplam kota</p>
+          </div>
+
+          <!-- Kart 2: Net Peşinat Toplamı -->
+          <div class="bg-white rounded-3xl p-6 shadow-lg shadow-slate-200/40 border border-slate-100 relative overflow-hidden">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-50 rounded-full opacity-60"></div>
+            <div class="flex items-center justify-between text-slate-400 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Net Peşinat Toplam</span>
+              <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">
+                <i class="fa-solid fa-hand-holding-dollar"></i>
+              </div>
+            </div>
+            <div id="dashPesinatVal" class="text-2xl sm:text-3xl font-black text-emerald-600 tracking-tight">
+              0 ₺
+            </div>
+            <p class="text-xs text-slate-400 mt-2">Gerçekleşen toplam tahsilat</p>
+          </div>
+
+          <!-- Kart 3: Oran (%) (Peşinat / Kota) -->
+          <div class="bg-gradient-to-br from-rose-600 to-rose-700 text-white rounded-3xl p-6 shadow-xl shadow-rose-200 relative overflow-hidden">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/10 rounded-full"></div>
+            <div class="flex items-center justify-between text-rose-200 mb-3">
+              <span class="text-xs font-bold uppercase tracking-wider text-rose-100">Gerçekleşme Oranı</span>
+              <div class="w-9 h-9 rounded-xl bg-white/20 text-white flex items-center justify-center text-sm">
+                <i class="fa-solid fa-percent"></i>
+              </div>
+            </div>
+            <div class="flex items-baseline space-x-1">
+              <span class="text-lg font-bold text-rose-200">%</span>
+              <span id="dashOranVal" class="text-3xl sm:text-4xl font-black tracking-tight">0,00</span>
+            </div>
+            <p class="text-xs text-rose-100/80 mt-2">Net Peşinat / Kota Oranı</p>
+          </div>
+
+        </div>
+
+        <!-- İlerleme Çubuğu ve Analiz Kartı -->
+        <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+          <div>
+            <div class="flex justify-between items-center text-sm font-semibold mb-2">
+              <span class="text-slate-700 flex items-center space-x-2">
+                <i class="fa-solid fa-chart-line text-rose-500"></i>
+                <span>Kota Tamamlanma Durumu</span>
+              </span>
+              <span id="dashProgressLabel" class="text-rose-600 font-bold">%0,00 tamamlandı</span>
+            </div>
+            <div class="w-full bg-slate-100 rounded-2xl h-4 p-0.5 overflow-hidden">
+              <div id="dashProgressBar" class="h-full bg-gradient-to-r from-rose-500 to-rose-600 rounded-xl transition-all duration-1000 progress-bar-shine" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+            <div class="bg-slate-50 rounded-2xl p-4 flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg flex-shrink-0">
+                <i class="fa-solid fa-hourglass-half"></i>
+              </div>
+              <div>
+                <span class="text-xs text-slate-500 font-medium">Kotaya Kalan Tutar</span>
+                <p id="dashKalanVal" class="text-base font-bold text-slate-800">0 ₺</p>
+              </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-2xl p-4 flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-lg flex-shrink-0">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+              </div>
+              <div>
+                <span class="text-xs text-slate-500 font-medium">Son Güncelleme</span>
+                <p id="dashLastUpdated" class="text-base font-bold text-slate-800">Bugün</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-rose-50/60 border border-rose-100 rounded-2xl p-4 flex items-start space-x-3 text-xs text-rose-900">
+            <i class="fa-solid fa-shield-check text-rose-600 text-base mt-0.5"></i>
+            <div>
+              <strong class="font-bold">Gizlilik Bildirimi:</strong> Bu ekranda yalnızca kendi şubenizin performansı listelenmektedir. Diğer şubelerin verileri şube güvenliği kapsamında gizlenmiştir.
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. YÖNETİCİ PANELİ -->
+    <!-- ========================================== -->
+    <div id="adminSection" class="hidden transition-all duration-300">
+      
+      <!-- Yönetici Giriş Kartı -->
+      <div id="adminLoginForm" class="max-w-md mx-auto my-8">
+        <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-10">
+          <div class="text-center mb-8">
+            <div class="w-14 h-14 bg-slate-900 text-white rounded-2xl mx-auto flex items-center justify-center text-2xl mb-4 shadow-md">
+              <i class="fa-solid fa-user-tie"></i>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-800">Yönetici Girişi</h2>
+            <p class="text-sm text-slate-500 mt-1">Excel yükleme ve tüm şubelerin icmal takibi</p>
+          </div>
+
+          <form id="adminAuthForm" onsubmit="handleAdminLogin(event)" class="space-y-5">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Yönetici Şifresi</label>
+              <div class="relative">
+                <input type="password" id="adminPasswordInput" required placeholder="••••••••" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800 focus:bg-white transition font-medium">
+                <button type="button" onclick="togglePasswordVisibility('adminPasswordInput', 'adminEyeIcon')" class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-slate-600">
+                  <i id="adminEyeIcon" class="fa-solid fa-eye text-sm"></i>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1.5 flex items-center space-x-1">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Varsayılan şifre: <strong class="text-slate-600">hedefadmin2026</strong></span>
+              </p>
+            </div>
+
+            <button type="submit" id="adminSubmitBtn" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3.5 px-4 rounded-xl shadow-lg shadow-slate-300 transition duration-200 flex items-center justify-center space-x-2 text-sm">
+              <span id="adminBtnText">Yönetici Paneline Gir</span>
+              <i id="adminBtnIcon" class="fa-solid fa-lock text-xs"></i>
+              <div id="adminSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Yönetici Kontrol Paneli (Başarılı Girişte Açılır) -->
+      <div id="adminDashboard" class="hidden space-y-6">
+        
+        <!-- Üst Bar: Dönem Seçimi, Yönetici Başlığı ve Çıkış -->
+        <div class="bg-white rounded-3xl p-6 shadow-xl shadow-slate-200/50 border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-bold">
+              <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-slate-900">Yönetim & İcmal Paneli</h2>
+              <p class="text-xs text-slate-500">Tüm şube kotaları, gerçekleşen peşinatlar ve oran tablosu</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center space-x-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+              <span class="text-xs font-semibold text-slate-500">Dönem:</span>
+              <select id="adminMonthSelect" onchange="loadAdminDataForMonth(this.value)" class="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer">
+                <option value="EKİM 2026">EKİM 2026</option>
+              </select>
+            </div>
+
+            <button onclick="logoutAdmin()" class="px-4 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>Çıkış Yap</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Yönetici Sekmeleri: [1. Excel/CSV Yükle] - [2. Tüm Şubeler Tablosu] - [3. Şifre Yönetimi] -->
+        <div class="flex border-b border-slate-200 space-x-2">
+          <button onclick="switchAdminTab('table')" id="tabBtnTable" class="px-5 py-3 text-sm font-bold border-b-2 border-rose-600 text-rose-600 transition flex items-center space-x-2">
+            <i class="fa-solid fa-table"></i>
+            <span>Tüm Şubeler İcmal Tablosu</span>
+          </button>
+          <button onclick="switchAdminTab('upload')" id="tabBtnUpload" class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i>
+            <span>Excel / CSV Yükle (Sheets'e İşle)</span>
+          </button>
+          <button onclick="switchAdminTab('passwords')" id="tabBtnPasswords" class="px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2">
+            <i class="fa-solid fa-key text-amber-500"></i>
+            <span>Şube Şifreleri</span>
+          </button>
+        </div>
+
+        <!-- TAB 1: TÜM ŞUBELER TABLOSU (Referans Görseldeki Birebir Tasarım) -->
+        <div id="adminTabTable" class="space-y-6">
+          
+          <!-- Üst KPI Özeti -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Toplam Hedef Kota</span>
+              <p id="totalKotaBadge" class="text-2xl font-black text-slate-900 mt-1">45.000.000 ₺</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Toplam Net Peşinat</span>
+              <p id="totalPesinatBadge" class="text-2xl font-black text-emerald-600 mt-1">880.192,00 ₺</p>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Genel Gerçekleşme Oranı</span>
+              <p id="totalOranBadge" class="text-2xl font-black text-rose-600 mt-1">%1,96</p>
+            </div>
+          </div>
+
+          <!-- Tablo Konteyneri -->
+          <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-slate-800 text-base">Şube Bazlı Kota ve Gerçekleşme Listesi</h3>
+                <p class="text-xs text-slate-400">Referans: Net Peşinat / Kota oranı</p>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="exportTableToExcel()" class="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Excel İndir</span>
+                </button>
+                <button onclick="loadAdminDataForMonth(currentAdminMonth)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>Yenile</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-sm" id="mainAdminTable">
+                <thead>
+                  <tr class="bg-slate-100 text-slate-700 uppercase font-bold text-xs border-b border-slate-200">
+                    <th class="px-6 py-3.5">Mağaza Adı</th>
+                    <th class="px-6 py-3.5 text-right">kota</th>
+                    <th class="px-6 py-3.5 text-right">Net Peşinat Toplam</th>
+                    <th class="px-6 py-3.5 text-center">Oran</th>
+                    <th class="px-6 py-3.5 text-left w-40">Durum</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-slate-100 font-medium">
+                  <!-- JS ile doldurulacak -->
+                </tbody>
+                <tfoot id="adminTableFoot" class="bg-slate-50 font-black border-t-2 border-slate-300">
+                  <!-- Genel Toplam Satırı JS ile eklenecek -->
+                </tfoot>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- TAB 2: EXCEL / CSV YÜKLEME (Sheets'e Otomatik Yazma) -->
+        <div id="adminTabUpload" class="hidden space-y-6">
+          <div class="bg-white rounded-3xl p-8 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6 max-w-3xl mx-auto">
+            <div>
+              <h3 class="text-xl font-extrabold text-slate-900">Excel Dosyası Yükle & Sayfaya Aktar</h3>
+              <p class="text-sm text-slate-500 mt-1">
+                Yükleyeceğiniz Excel veya CSV tablosundaki veriler doğrudan Google Sheets'teki ilgili ay sayfasına işlenecek ve tüm şubeler anında güncel oranlarını görebilecektir.
+              </p>
+            </div>
+
+            <!-- Ay Adı Belirleme -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Hangi Aya İşlensin?</label>
+              <div class="flex items-center space-x-3">
+                <input type="text" id="uploadMonthInput" value="EKİM 2026" placeholder="Örn: EKİM 2026, KASIM 2026" class="flex-grow bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-sm font-semibold uppercase focus:outline-none focus:ring-2 focus:ring-rose-500">
+                <span class="text-xs text-slate-400 font-medium">Sayfa otomatik açılır</span>
+              </div>
+            </div>
+
+            <!-- Sürükle Bırak Dosya Yükleyici -->
+            <div id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)" class="border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-3xl p-8 text-center transition cursor-pointer bg-slate-50 hover:bg-rose-50/30">
+              <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(event)" class="hidden">
+              <div onclick="document.getElementById('excelFileInput').click()" class="space-y-3">
+                <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl mx-auto flex items-center justify-center text-3xl">
+                  <i class="fa-solid fa-file-excel"></i>
+                </div>
+                <div>
+                  <p class="text-base font-bold text-slate-800">Excel veya CSV Dosyasını Buraya Sürükleyin</p>
+                  <p class="text-xs text-slate-400 mt-1">veya bilgisayarınızdan seçmek için <span class="text-rose-600 underline font-semibold">tıklayın</span></p>
+                </div>
+                <div class="inline-block px-3 py-1 bg-slate-200/70 text-slate-600 text-xs rounded-lg font-medium">
+                  Sütun Başlıkları: Mağaza Adı, kota, Net Peşinat Toplam
+                </div>
+              </div>
+            </div>
+
+            <!-- Seçilen Dosya Önizleme Alanı -->
+            <div id="uploadPreviewSection" class="hidden space-y-4">
+              <div class="flex items-center justify-between bg-slate-100 rounded-2xl p-4">
+                <div class="flex items-center space-x-3">
+                  <i class="fa-solid fa-file-spreadsheet text-emerald-600 text-2xl"></i>
+                  <div>
+                    <h5 id="previewFileName" class="text-sm font-bold text-slate-800">dosya.xlsx</h5>
+                    <p id="previewRowCount" class="text-xs text-slate-500">13 şube satırı tespit edildi</p>
+                  </div>
+                </div>
+                <button onclick="clearSelectedFile()" class="text-xs font-semibold text-rose-600 hover:underline">Değiştir</button>
+              </div>
+
+              <!-- Önizleme Tablosu -->
+              <div class="max-h-60 overflow-y-auto border border-slate-200 rounded-2xl custom-scrollbar">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-100 sticky top-0 font-bold text-slate-700">
+                    <tr>
+                      <th class="p-2.5">Mağaza</th>
+                      <th class="p-2.5 text-right">Kota</th>
+                      <th class="p-2.5 text-right">Net Peşinat</th>
+                      <th class="p-2.5 text-center">Oran</th>
+                    </tr>
+                  </thead>
+                  <tbody id="previewTableBody" class="divide-y divide-slate-100">
+                    <!-- Önizleme satırları -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Sheets'e Gönder Butonu -->
+              <button onclick="submitDataToGoogleSheets()" id="btnSendToSheets" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-emerald-200 transition flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span id="btnSendText">Google Sheets'e Yükle ve Şubelere Yayınla</span>
+                <div id="uploadSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 3: ŞUBE ŞİFRELERİ YÖNETİMİ -->
+        <div id="adminTabPasswords" class="hidden space-y-6 max-w-3xl mx-auto">
+          <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 border border-slate-100 space-y-6">
+            <div>
+              <h3 class="text-lg font-black text-slate-900">Şube Giriş Şifreleri</h3>
+              <p class="text-xs text-slate-500 mt-1">Personellerin kendi şubelerine giriş yapabilmeleri için belirlenen şifreler.</p>
+            </div>
+
+            <div class="divide-y divide-slate-100 max-h-96 overflow-y-auto custom-scrollbar pr-2" id="branchPasswordList">
+              <!-- JS ile şube şifre satırları doldurulacak -->
+            </div>
+
+            <!-- Yönetici Şifresini Değiştirme -->
+            <div class="pt-6 border-t border-slate-200">
+              <h4 class="text-sm font-bold text-slate-800 mb-3">Yönetici Giriş Şifresini Değiştir</h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input type="password" id="newAdminPassword" placeholder="Yeni Yönetici Şifresi" class="bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800">
+                <button onclick="changeAdminPasswordAction()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl px-4 py-2.5 transition">
+                  Şifreyi Güncelle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- AYARLAR & API MODAL -->
+  <div id="apiConfigModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg">
+            <i class="fa-solid fa-link"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Google Apps Script Bağlantısı</h3>
+            <p class="text-xs text-slate-400">Canlı Google Sheets Entegrasyonu</p>
+          </div>
+        </div>
+        <button onclick="closeApiModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Web App URL</label>
+          <input type="url" id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-rose-500">
+          <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+            Google Sheets'te <strong class="text-slate-700">Dağıt (Deploy) > Yeni Dağıtım > Web Uygulaması</strong> adımıyla oluşturduğunuz <code>/exec</code> ile biten bağlantı adresini yapıştırın.
+          </p>
+        </div>
+
+        <div class="bg-slate-50 rounded-2xl p-4 text-xs text-slate-600 space-y-1.5">
+          <p class="font-bold text-slate-800"><i class="fa-solid fa-lightbulb text-amber-500 mr-1"></i> Not:</p>
+          <p>• Bu adres tarayıcınızın hafızasında saklanır. Netlify'a yüklediğinizde bile herkes bu adresten sheets verilerini çeker.</p>
+          <p>• Eğer henüz deploy etmediyseniz sistem önizleme amacıyla örnek veriyle çalışabilir.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-3 pt-2">
+        <button onclick="closeApiModal()" class="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+          İptal
+        </button>
+        <button onclick="saveApiUrl()" class="px-5 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-200 transition">
+          Kaydet & Bağlan
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST BİLDİRİM BİLEŞENİ -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT KODLARI -->
+  <script>
+    // ==========================================
+    // 1. GLOBAL STATE & LOCAL STORAGE
+    // ==========================================
+    const DEFAULT_API_URL = ""; // İsteğe bağlı olarak Apps Script deploy URL'nizi buraya da yazabilirsiniz
+    let API_URL = localStorage.getItem("HEDEF_API_URL") || DEFAULT_API_URL;
+    let currentAdminPassword = "";
+    let currentAdminMonth = "EKİM 2026";
+    let pendingUploadRows = [];
+
+    // Örnek Yedek Veri (Bağlantı henüz kurulmamışsa demo olarak çalışır)
+    const DEMO_OCTOBER_DATA = [
+      { branch: "PAŞABAHÇE", kota: 2012000, netPesinat: 35537, oran: 1.77 },
+      { branch: "KAVACIK", kota: 4616723, netPesinat: 143759, oran: 3.11 },
+      { branch: "YENİDOĞAN", kota: 4916405, netPesinat: 79274, oran: 1.61 },
+      { branch: "ÇEKMEKÖY", kota: 3322601, netPesinat: 62207, oran: 1.87 },
+      { branch: "SULTANBEYLİ", kota: 2366858, netPesinat: 22347, oran: 0.94 },
+      { branch: "KÖRFEZ", kota: 5732656, netPesinat: 226526, oran: 3.95 },
+      { branch: "İZMİT", kota: 3473792, netPesinat: 47776, oran: 1.38 },
+      { branch: "DERİNCE", kota: 3374798, netPesinat: 41562, oran: 1.23 },
+      { branch: "GÖLCÜK", kota: 6083635, netPesinat: 51285, oran: 0.84 },
+      { branch: "İNEGÖL", kota: 1961882, netPesinat: 27806, oran: 1.42 },
+      { branch: "ÇAYIROVA", kota: 1764794, netPesinat: 35897, oran: 2.03 },
+      { branch: "GEBZE", kota: 1233826, netPesinat: 27198, oran: 2.20 },
+      { branch: "DÜZCE", kota: 4139752, netPesinat: 79018, oran: 1.91 },
+    ];
+
+    // ==========================================
+    // 2. SAYFA YÜKLENDİĞİNDE
+    // ==========================================
+    document.addEventListener("DOMContentLoaded", () => {
+      checkApiStatus();
+      if (API_URL) {
+        fetchInitialBranchesAndMonths();
+      }
+    });
+
+    function checkApiStatus() {
+      const banner = document.getElementById("apiWarningBanner");
+      if (!API_URL || API_URL.trim() === "") {
+        banner.classList.remove("hidden");
+      } else {
+        banner.classList.add("hidden");
+      }
+    }
+
+    // ==========================================
+    // 3. API MODAL VE AYARLAR
+    // ==========================================
+    function openApiModal() {
+      document.getElementById("apiUrlInput").value = API_URL;
+      document.getElementById("apiConfigModal").classList.remove("hidden");
+    }
+
+    function closeApiModal() {
+      document.getElementById("apiConfigModal").classList.add("hidden");
+    }
+
+    function saveApiUrl() {
+      const input = document.getElementById("apiUrlInput").value.trim();
+      API_URL = input;
+      localStorage.setItem("HEDEF_API_URL", API_URL);
+      closeApiModal();
+      checkApiStatus();
+      showToast("API Bağlantı adresi kaydedildi", "success");
+      if (API_URL) {
+        fetchInitialBranchesAndMonths();
+      }
+    }
+
+    // ==========================================
+    // 4. ŞUBE & DÖNEM LİSTESİNİ ÇEKME
+    // ==========================================
+    async function fetchInitialBranchesAndMonths() {
+      if (!API_URL) return;
+      try {
+        const res = await fetch(`${API_URL}?action=getBranches`);
+        const data = await res.json();
+        if (data.success) {
+          // Şubeler dropdown'ını güncelle
+          if (data.branches && data.branches.length > 0) {
+            const select = document.getElementById("branchNameSelect");
+            select.innerHTML = '<option value="" disabled selected>Şubenizi Seçiniz...</option>';
+            data.branches.forEach(b => {
+              const opt = document.createElement("option");
+              opt.value = b;
+              opt.textContent = b;
+              select.appendChild(opt);
+            });
+          }
+          // Aylar dropdown'ını güncelle
+          if (data.months && data.months.length > 0) {
+            updateMonthDropdowns(data.months, data.activeMonth);
+          }
+        }
+      } catch (err) {
+        console.warn("API şube listesi alınamadı, yerel liste devrede:", err);
+      }
+    }
+
+    function updateMonthDropdowns(months, activeMonth) {
+      const bSelect = document.getElementById("branchMonthSelect");
+      const aSelect = document.getElementById("adminMonthSelect");
+      bSelect.innerHTML = "";
+      aSelect.innerHTML = "";
+
+      months.forEach(m => {
+        const opt1 = document.createElement("option");
+        opt1.value = m;
+        opt1.textContent = m;
+        if (m === activeMonth) opt1.selected = true;
+        bSelect.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = m;
+        opt2.textContent = m;
+        if (m === activeMonth) opt2.selected = true;
+        aSelect.appendChild(opt2);
+      });
+      currentAdminMonth = activeMonth || months[0] || "EKİM 2026";
+      document.getElementById("uploadMonthInput").value = currentAdminMonth;
+    }
+
+    // ==========================================
+    // 5. GÖRÜNÜM GEÇİŞLERİ (Şube vs Yönetici)
+    // ==========================================
+    function switchMainView(view) {
+      const branchSection = document.getElementById("branchSection");
+      const adminSection = document.getElementById("adminSection");
+      const navBranchBtn = document.getElementById("navBranchBtn");
+      const navAdminBtn = document.getElementById("navAdminBtn");
+
+      if (view === "branch") {
+        branchSection.classList.remove("hidden");
+        adminSection.classList.add("hidden");
+
+        navBranchBtn.className = "px-3 py-1.5 rounded-lg transition-all duration-200 bg-white text-rose-600 shadow-sm flex items-center space-x-1.5";
+        navAdminBtn.className = "px-3 py-1.5 rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5";
+      } else {
+        branchSection.classList.add("hidden");
+        adminSection.classList.remove("hidden");
+
+        navAdminBtn.className = "px-3 py-1.5 rounded-lg transition-all duration-200 bg-white text-slate-900 shadow-sm flex items-center space-x-1.5";
+        navBranchBtn.className = "px-3 py-1.5 rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5";
+      }
+    }
+
+    // ==========================================
+    // 6. ŞUBE GİRİŞ İŞLEMİ (SADECE KENDİ ŞUBESİ)
+    // ==========================================
+    async function handleBranchLogin(e) {
+      e.preventDefault();
+      const branchName = document.getElementById("branchNameSelect").value;
+      const password = document.getElementById("branchPasswordInput").value.trim();
+      const month = document.getElementById("branchMonthSelect").value;
+
+      if (!branchName) {
+        showToast("Lütfen şubenizi seçiniz", "error");
+        return;
+      }
+      if (!password) {
+        showToast("Lütfen şube şifrenizi giriniz", "error");
+        return;
+      }
+
+      setBranchLoading(true);
+
+      try {
+        let result = null;
+
+        // Canlı API çağrısı
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "branchLogin",
+              branchName: branchName,
+              password: password,
+              month: month
+            })
+          });
+          result = await res.json();
+        } else {
+          // Demo Modu Kontrolü
+          await new Promise(r => setTimeout(r, 600)); // Hafif animasyon hissi
+          if (password === "1234") {
+            const found = DEMO_OCTOBER_DATA.find(d => d.branch.toLocaleUpperCase('tr-TR') === branchName.toLocaleUpperCase('tr-TR'));
+            if (found) {
+              result = {
+                success: true,
+                branch: found.branch,
+                month: month,
+                kota: found.kota,
+                netPesinat: found.netPesinat,
+                oran: found.oran,
+                kalanKota: Math.max(0, found.kota - found.netPesinat),
+                lastUpdated: new Date().toLocaleDateString('tr-TR')
+              };
+            } else {
+              result = { success: false, error: "Şube bu ayki listede bulunamadı." };
+            }
+          } else {
+            result = { success: false, error: "Hatalı şifre! (Demo şifre: 1234)" };
+          }
+        }
+
+        if (result && result.success) {
+          showBranchDashboard(result);
+          showToast(`Hoş geldiniz, ${result.branch}`, "success");
+        } else {
+          showToast(result.error || "Giriş başarısız!", "error");
+        }
+
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        setBranchLoading(false);
+      }
+    }
+
+    function showBranchDashboard(data) {
+      document.getElementById("branchLoginForm").classList.add("hidden");
+      document.getElementById("branchDashboard").classList.remove("hidden");
+
+      document.getElementById("dashBranchTitle").textContent = `${data.branch} ŞUBESİ`;
+      document.getElementById("dashMonthBadge").textContent = data.month;
+      
+      document.getElementById("dashKotaVal").textContent = formatMoney(data.kota);
+      document.getElementById("dashPesinatVal").textContent = formatMoney(data.netPesinat, true);
+      document.getElementById("dashOranVal").textContent = formatPercent(data.oran);
+
+      const kalan = Math.max(0, data.kota - data.netPesinat);
+      document.getElementById("dashKalanVal").textContent = formatMoney(kalan, true);
+      document.getElementById("dashLastUpdated").textContent = data.lastUpdated || "Bugün";
+
+      // Progress Bar
+      const oranNum = typeof data.oran === "number" ? data.oran : parseFloat(data.oran) || 0;
+      const progressWidth = Math.min(100, Math.max(0, oranNum));
+      document.getElementById("dashProgressBar").style.width = `${progressWidth}%`;
+      document.getElementById("dashProgressLabel").textContent = `%${formatPercent(data.oran)} tamamlandı`;
+    }
+
+    function logoutBranch() {
+      document.getElementById("branchDashboard").classList.add("hidden");
+      document.getElementById("branchLoginForm").classList.remove("hidden");
+      document.getElementById("branchPasswordInput").value = "";
+    }
+
+    function setBranchLoading(isLoading) {
+      const btnText = document.getElementById("branchBtnText");
+      const btnIcon = document.getElementById("branchBtnIcon");
+      const spinner = document.getElementById("branchSpinner");
+      const btn = document.getElementById("branchSubmitBtn");
+
+      if (isLoading) {
+        btnText.classList.add("hidden");
+        btnIcon.classList.add("hidden");
+        spinner.classList.remove("hidden");
+        btn.disabled = true;
+      } else {
+        btnText.classList.remove("hidden");
+        btnIcon.classList.remove("hidden");
+        spinner.classList.add("hidden");
+        btn.disabled = false;
+      }
+    }
+
+    // ==========================================
+    // 7. YÖNETİCİ GİRİŞİ & İCMAL TABLOSU
+    // ==========================================
+    async function handleAdminLogin(e) {
+      e.preventDefault();
+      const password = document.getElementById("adminPasswordInput").value.trim();
+      if (!password) {
+        showToast("Lütfen yönetici şifresini giriniz", "error");
+        return;
+      }
+
+      setAdminLoading(true);
+      currentAdminPassword = password;
+
+      try {
+        let result = null;
+
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "adminLogin",
+              adminPassword: password,
+              month: currentAdminMonth
+            })
+          });
+          result = await res.json();
+        } else {
+          // Demo Yönetici Girişi
+          await new Promise(r => setTimeout(r, 600));
+          if (password === "hedefadmin2026") {
+            const sumKota = DEMO_OCTOBER_DATA.reduce((a, b) => a + b.kota, 0);
+            const sumPesinat = DEMO_OCTOBER_DATA.reduce((a, b) => a + b.netPesinat, 0);
+            const sumOran = Number(((sumPesinat / sumKota) * 100).toFixed(2));
+            result = {
+              success: true,
+              month: "EKİM 2026",
+              months: ["EKİM 2026"],
+              branches: DEMO_OCTOBER_DATA.map(d => ({ name: d.branch, kota: d.kota, netPesinat: d.netPesinat, oran: d.oran })),
+              totals: { name: "GENEL TOPLAM", kota: sumKota, netPesinat: sumPesinat, oran: sumOran },
+              passwords: DEMO_OCTOBER_DATA.map(d => ({ branch: d.branch, password: "1234" }))
+            };
+          } else {
+            result = { success: false, error: "Hatalı yönetici şifresi! (Demo şifre: hedefadmin2026)" };
+          }
+        }
+
+        if (result && result.success) {
+          showAdminDashboard(result);
+          showToast("Yönetici girişi başarılı", "success");
+        } else {
+          showToast(result.error || "Giriş başarısız!", "error");
+        }
+
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        setAdminLoading(false);
+      }
+    }
+
+    function showAdminDashboard(data) {
+      document.getElementById("adminLoginForm").classList.add("hidden");
+      document.getElementById("adminDashboard").classList.remove("hidden");
+
+      renderAdminTable(data.branches, data.totals);
+      if (data.passwords) {
+        renderBranchPasswords(data.passwords);
+      }
+    }
+
+    function renderAdminTable(branches, totals) {
+      const tbody = document.getElementById("adminTableBody");
+      const tfoot = document.getElementById("adminTableFoot");
+      tbody.innerHTML = "";
+      tfoot.innerHTML = "";
+
+      if (!branches || branches.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">Bu aya ait veri bulunamadı.</td></tr>`;
+        return;
+      }
+
+      branches.forEach(b => {
+        const oranNum = typeof b.oran === "number" ? b.oran : parseFloat(b.oran) || 0;
+        const progressWidth = Math.min(100, Math.max(0, oranNum * 5)); // görsel etki için
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="px-6 py-3.5 font-bold text-slate-800">${b.name}</td>
+          <td class="px-6 py-3.5 text-right font-mono text-slate-700">${formatMoney(b.kota)}</td>
+          <td class="px-6 py-3.5 text-right font-mono font-bold text-emerald-700">${formatMoney(b.netPesinat, true)}</td>
+          <td class="px-6 py-3.5 text-center font-bold text-rose-600">%${formatPercent(b.oran)}</td>
+          <td class="px-6 py-3.5">
+            <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div class="bg-rose-500 h-full rounded-full" style="width: ${progressWidth}%"></div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Genel Toplam Satırı (Referans Görseldeki Birebir Değerler)
+      if (totals) {
+        document.getElementById("totalKotaBadge").textContent = formatMoney(totals.kota);
+        document.getElementById("totalPesinatBadge").textContent = formatMoney(totals.netPesinat, true);
+        document.getElementById("totalOranBadge").textContent = `%${formatPercent(totals.oran)}`;
+
+        const trFoot = document.createElement("tr");
+        trFoot.className = "bg-slate-100 border-t-2 border-slate-300";
+        trFoot.innerHTML = `
+          <td class="px-6 py-4 font-black text-slate-900">${totals.name || 'GENEL TOPLAM'}</td>
+          <td class="px-6 py-4 text-right font-mono font-black text-slate-900">${formatMoney(totals.kota)}</td>
+          <td class="px-6 py-4 text-right font-mono font-black text-emerald-700">${formatMoney(totals.netPesinat, true)}</td>
+          <td class="px-6 py-4 text-center font-black text-rose-700 text-base">%${formatPercent(totals.oran)}</td>
+          <td class="px-6 py-4 text-xs text-slate-500 font-semibold">Tüm Şubeler İcmali</td>
+        `;
+        tfoot.appendChild(trFoot);
+      }
+    }
+
+    function renderBranchPasswords(passwords) {
+      const container = document.getElementById("branchPasswordList");
+      container.innerHTML = "";
+
+      passwords.forEach(item => {
+        const div = document.createElement("div");
+        div.className = "py-3 flex items-center justify-between";
+        div.innerHTML = `
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold">
+              <i class="fa-solid fa-store"></i>
+            </div>
+            <span class="text-sm font-bold text-slate-800">${item.branch}</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="text" id="pwd_${item.branch}" value="${item.password || '1234'}" class="w-28 text-center bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-rose-500">
+            <button onclick="saveSingleBranchPassword('${item.branch}')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-medium transition" title="Şifreyi Kaydet">
+              <i class="fa-solid fa-check"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    async function saveSingleBranchPassword(branchName) {
+      const input = document.getElementById(`pwd_${branchName}`);
+      const newPassword = input.value.trim();
+      if (!newPassword) {
+        showToast("Şifre boş olamaz", "error");
+        return;
+      }
+
+      if (API_URL) {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "updateBranchPassword",
+              adminPassword: currentAdminPassword,
+              branchName: branchName,
+              newPassword: newPassword
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`${branchName} şifresi güncellendi`, "success");
+          } else {
+            showToast(data.error || "Güncelleme başarısız", "error");
+          }
+        } catch (err) {
+          showToast("Hata: " + err.message, "error");
+        }
+      } else {
+        showToast(`${branchName} şifresi yerel olarak güncellendi (Demo)`, "success");
+      }
+    }
+
+    async function changeAdminPasswordAction() {
+      const newPwd = document.getElementById("newAdminPassword").value.trim();
+      if (!newPwd) {
+        showToast("Lütfen yeni şifre giriniz", "error");
+        return;
+      }
+      if (API_URL) {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "changeAdminPassword",
+              oldPassword: currentAdminPassword,
+              newPassword: newPwd
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            currentAdminPassword = newPwd;
+            document.getElementById("newAdminPassword").value = "";
+            showToast("Yönetici şifresi güncellendi", "success");
+          } else {
+            showToast(data.error || "Şifre değiştirilemedi", "error");
+          }
+        } catch (err) {
+          showToast("Hata: " + err.message, "error");
+        }
+      } else {
+        currentAdminPassword = newPwd;
+        document.getElementById("newAdminPassword").value = "";
+        showToast("Yönetici şifresi güncellendi (Demo)", "success");
+      }
+    }
+
+    async function loadAdminDataForMonth(month) {
+      currentAdminMonth = month;
+      if (API_URL) {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "adminLogin",
+              adminPassword: currentAdminPassword,
+              month: month
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            renderAdminTable(data.branches, data.totals);
+          }
+        } catch (err) {
+          showToast("Dönem verisi yüklenemedi", "error");
+        }
+      }
+    }
+
+    function logoutAdmin() {
+      document.getElementById("adminDashboard").classList.add("hidden");
+      document.getElementById("adminLoginForm").classList.remove("hidden");
+      document.getElementById("adminPasswordInput").value = "";
+      currentAdminPassword = "";
+    }
+
+    function setAdminLoading(isLoading) {
+      const btnText = document.getElementById("adminBtnText");
+      const btnIcon = document.getElementById("adminBtnIcon");
+      const spinner = document.getElementById("adminSpinner");
+      const btn = document.getElementById("adminSubmitBtn");
+
+      if (isLoading) {
+        btnText.classList.add("hidden");
+        btnIcon.classList.add("hidden");
+        spinner.classList.remove("hidden");
+        btn.disabled = true;
+      } else {
+        btnText.classList.remove("hidden");
+        btnIcon.classList.remove("hidden");
+        spinner.classList.add("hidden");
+        btn.disabled = false;
+      }
+    }
+
+    function switchAdminTab(tab) {
+      document.getElementById("adminTabTable").classList.add("hidden");
+      document.getElementById("adminTabUpload").classList.add("hidden");
+      document.getElementById("adminTabPasswords").classList.add("hidden");
+
+      document.getElementById("tabBtnTable").className = "px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+      document.getElementById("tabBtnUpload").className = "px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+      document.getElementById("tabBtnPasswords").className = "px-5 py-3 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+
+      if (tab === "table") {
+        document.getElementById("adminTabTable").classList.remove("hidden");
+        document.getElementById("tabBtnTable").className = "px-5 py-3 text-sm font-bold border-b-2 border-rose-600 text-rose-600 transition flex items-center space-x-2";
+      } else if (tab === "upload") {
+        document.getElementById("adminTabUpload").classList.remove("hidden");
+        document.getElementById("tabBtnUpload").className = "px-5 py-3 text-sm font-bold border-b-2 border-emerald-600 text-emerald-600 transition flex items-center space-x-2";
+      } else if (tab === "passwords") {
+        document.getElementById("adminTabPasswords").classList.remove("hidden");
+        document.getElementById("tabBtnPasswords").className = "px-5 py-3 text-sm font-bold border-b-2 border-amber-500 text-amber-600 transition flex items-center space-x-2";
+      }
+    }
+
+    // ==========================================
+    // 8. EXCEL & CSV YÜKLEME / PARSING
+    // ==========================================
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.add("border-rose-500", "bg-rose-50/50");
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-rose-500", "bg-rose-50/50");
+    }
+
+    function handleFileDrop(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-rose-500", "bg-rose-50/50");
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processExcelFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files.length > 0) {
+        processExcelFile(e.target.files[0]);
+      }
+    }
+
+    function processExcelFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (!json || json.length < 2) {
+            showToast("Dosya boş veya uygun formatta değil!", "error");
+            return;
+          }
+
+          // Satırları ayrıştır
+          // İlk satır başlıklar (Mağaza Adı, kota, Net Peşinat Toplam)
+          const headers = json[0].map(h => (h || "").toString().toLowerCase().trim());
+          
+          let branchCol = -1;
+          let kotaCol = -1;
+          let pesinatCol = -1;
+
+          headers.forEach((h, idx) => {
+            if (h.includes("mağaza") || h.includes("sube") || h.includes("şube") || h.includes("magaza")) branchCol = idx;
+            if (h.includes("kota")) kotaCol = idx;
+            if (h.includes("peşinat") || h.includes("pesinat") || h.includes("net")) pesinatCol = idx;
+          });
+
+          // Eğer bulunamazsa varsayılan sıra: 0: Şube, 1: Kota, 2: Peşinat
+          if (branchCol === -1) branchCol = 0;
+          if (kotaCol === -1) kotaCol = 1;
+          if (pesinatCol === -1) pesinatCol = 2;
+
+          pendingUploadRows = [];
+          for (let i = 1; i < json.length; i++) {
+            const row = json[i];
+            const branch = (row[branchCol] || "").toString().trim().toLocaleUpperCase('tr-TR');
+            if (!branch || branch === "TOPLAM" || branch === "GENEL TOPLAM") continue;
+
+            const kota = parseNumericLocal(row[kotaCol]);
+            const pesinat = parseNumericLocal(row[pesinatCol]);
+            const oran = kota > 0 ? Number(((pesinat / kota) * 100).toFixed(2)) : 0;
+
+            pendingUploadRows.push({
+              branch: branch,
+              kota: kota,
+              netPesinat: pesinat,
+              oran: oran
+            });
+          }
+
+          if (pendingUploadRows.length === 0) {
+            showToast("Geçerli şube satırı bulunamadı!", "error");
+            return;
+          }
+
+          // Önizlemeyi göster
+          document.getElementById("previewFileName").textContent = file.name;
+          document.getElementById("previewRowCount").textContent = `${pendingUploadRows.length} şube başarıyla okundu`;
+          
+          const tbody = document.getElementById("previewTableBody");
+          tbody.innerHTML = "";
+          pendingUploadRows.forEach(r => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="p-2.5 font-bold">${r.branch}</td>
+              <td class="p-2.5 text-right font-mono">${formatMoney(r.kota)}</td>
+              <td class="p-2.5 text-right font-mono text-emerald-700">${formatMoney(r.netPesinat, true)}</td>
+              <td class="p-2.5 text-center font-bold text-rose-600">%${formatPercent(r.oran)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+          document.getElementById("uploadPreviewSection").classList.remove("hidden");
+          showToast(`${pendingUploadRows.length} şube verisi hazırlandı`, "success");
+
+        } catch (err) {
+          showToast("Excel okuma hatası: " + err.message, "error");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function clearSelectedFile() {
+      pendingUploadRows = [];
+      document.getElementById("uploadPreviewSection").classList.add("hidden");
+      document.getElementById("excelFileInput").value = "";
+    }
+
+    async function submitDataToGoogleSheets() {
+      if (pendingUploadRows.length === 0) {
+        showToast("Lütfen önce bir Excel dosyası seçiniz", "error");
+        return;
+      }
+
+      const targetMonth = document.getElementById("uploadMonthInput").value.trim().toLocaleUpperCase('tr-TR');
+      if (!targetMonth) {
+        showToast("Lütfen bir dönem (ay) adı giriniz", "error");
+        return;
+      }
+
+      const btn = document.getElementById("btnSendToSheets");
+      const btnText = document.getElementById("btnSendText");
+      const spinner = document.getElementById("uploadSpinner");
+
+      btn.disabled = true;
+      btnText.textContent = "Google Sheets'e Yazılıyor...";
+      spinner.classList.remove("hidden");
+
+      try {
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "uploadData",
+              adminPassword: currentAdminPassword,
+              month: targetMonth,
+              rows: pendingUploadRows
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            showToast(`${targetMonth} sayfası Google Sheets'e başarıyla yüklendi!`, "success");
+            clearSelectedFile();
+            switchAdminTab("table");
+            fetchInitialBranchesAndMonths();
+            loadAdminDataForMonth(targetMonth);
+          } else {
+            showToast(result.error || "Yükleme başarısız", "error");
+          }
+        } else {
+          // Demo
+          await new Promise(r => setTimeout(r, 1000));
+          showToast(`${targetMonth} sayfası işlendi (Demo Modu)`, "success");
+          clearSelectedFile();
+          switchAdminTab("table");
+        }
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = "Google Sheets'e Yükle ve Şubelere Yayınla";
+        spinner.classList.add("hidden");
+      }
+    }
+
+    // ==========================================
+    // 9. YARDIMCI FORMAT FONKSİYONLARI
+    // ==========================================
+    function formatMoney(val, showDecimals = false) {
+      if (val === undefined || val === null || isNaN(val)) return "0 ₺";
+      const num = Number(val);
+      return num.toLocaleString('tr-TR', {
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0
+      }) + " ₺";
+    }
+
+    function formatPercent(val) {
+      if (val === undefined || val === null || isNaN(val)) return "0,00";
+      const num = Number(val);
+      return num.toLocaleString('tr-TR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function parseNumericLocal(val) {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === "number") return val;
+      let str = val.toString().trim().replace(/\s+/g, '').replace(/[₺TLtl]/g, '');
+
+      if (str.indexOf('.') !== -1 && str.indexOf(',') !== -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+          str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+          str = str.replace(/,/g, '');
+        }
+      } else if (str.indexOf(',') !== -1) {
+        str = str.replace(',', '.');
+      } else if (str.indexOf('.') !== -1) {
+        const parts = str.split('.');
+        if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+          str = str.replace(/\./g, '');
+        }
+      }
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (input.type === "password") {
+        input.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+      } else {
+        input.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
+      }
+    }
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      
+      let bg = "bg-slate-900 text-white";
+      let icon = "fa-circle-info text-blue-400";
+      if (type === "success") {
+        bg = "bg-emerald-800 text-white";
+        icon = "fa-circle-check text-emerald-300";
+      } else if (type === "error") {
+        bg = "bg-rose-900 text-white";
+        icon = "fa-circle-exclamation text-rose-300";
+      }
+
+      toast.className = `${bg} px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-3 text-xs font-semibold pointer-events-auto transform transition duration-300 translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} text-base"></i>
+        <span>${message}</span>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function exportTableToExcel() {
+      const table = document.getElementById("mainAdminTable");
+      const wb = XLSX.utils.table_to_book(table, { sheet: currentAdminMonth });
+      XLSX.writeFile(wb, `Hedef_AVM_Kota_${currentAdminMonth.replace(/\s+/g, '_')}.xlsx`);
+    }
+  </script>
+</body>
+</html>
