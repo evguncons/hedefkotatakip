@@ -40,6 +40,7 @@
           boxShadow: {
             'glow-red': '0 0 25px -5px rgba(225, 29, 72, 0.35)',
             'glow-emerald': '0 0 25px -5px rgba(16, 185, 129, 0.35)',
+            'glow-blue': '0 0 25px -5px rgba(37, 99, 235, 0.35)',
             'soft': '0 10px 30px -5px rgba(0, 0, 0, 0.05)',
             'card': '0 4px 20px -2px rgba(15, 23, 42, 0.06)',
           }
@@ -267,7 +268,7 @@
           </div>
         </div>
 
-        <!-- SADECE GERÇEKLEŞME ORANI EKRANI (Finansal tutarlar gizlidir) -->
+        <!-- SADECE GERÇEKLEŞME ORANI EKRANI -->
         <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-card border border-slate-100 text-center relative overflow-hidden">
           <div class="max-w-md mx-auto space-y-6">
             
@@ -388,7 +389,7 @@
           </div>
         </div>
 
-        <!-- YÖNETİCİ SEKMELERİ (MOBİLDE YATAY KAYDIRMALI) -->
+        <!-- YÖNETİCİ SEKMELERİ -->
         <div class="overflow-x-auto custom-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
           <div class="flex border-b border-slate-200/80 space-x-1 sm:space-x-2 min-w-max">
             <button onclick="switchAdminTab('table')" id="tabBtnTable" class="px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-rose-600 text-rose-600 transition flex items-center space-x-2">
@@ -450,12 +451,12 @@
               </div>
             </div>
 
-            <!-- Tablo (ŞUBE ADI, ORAN, SON GİRİŞ VE DURUM) -->
+            <!-- Tablo (Şube Adına Tıklayınca Pop-up Açılır!) -->
             <div class="overflow-x-auto custom-scrollbar">
               <table class="w-full text-left text-xs sm:text-sm" id="mainAdminTable">
                 <thead>
                   <tr class="bg-slate-100/80 text-slate-600 uppercase font-bold text-[11px] border-b border-slate-200">
-                    <th class="px-4 sm:px-6 py-3.5">Mağaza Adı</th>
+                    <th class="px-4 sm:px-6 py-3.5">Mağaza Adı (Detay İçin Tıklayın)</th>
                     <th class="px-4 sm:px-6 py-3.5 text-center">Gerçekleşme Oranı</th>
                     <th class="px-4 sm:px-6 py-3.5 text-center">Son Giriş Zamanı</th>
                     <th class="px-4 sm:px-6 py-3.5 text-left w-36 sm:w-48">Performans Durumu</th>
@@ -474,7 +475,7 @@
 
         </div>
 
-        <!-- SEKME 2: GİRİŞ GEÇMİŞİ & LOGLAR (YENİ) -->
+        <!-- SEKME 2: GİRİŞ GEÇMİŞİ & LOGLAR -->
         <div id="adminTabLogs" class="hidden space-y-4 sm:space-y-6">
           
           <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -484,7 +485,7 @@
               </div>
               <div>
                 <h3 class="text-base sm:text-lg font-black text-slate-900 tracking-tight">Şube Giriş Geçmişi & Log Takibi</h3>
-                <p class="text-xs text-slate-500 font-medium">Hangi şube sisteme ne zaman girmiş tarih ve saat olarak izleyebilirsiniz.</p>
+                <p class="text-xs text-slate-500 font-medium">Şube kartına tıklayarak o şubenin tüm geçmiş girişlerini inceleyebilirsiniz.</p>
               </div>
             </div>
 
@@ -494,11 +495,11 @@
             </button>
           </div>
 
-          <!-- Şube Bazında Son Giriş Özeti (Kartlar) -->
+          <!-- Şube Bazında Son Giriş Özeti (Tıklanabilir Kartlar) -->
           <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100 space-y-4">
             <div class="flex items-center justify-between">
               <h4 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-700">Şubelerin En Son Giriş Zamanları</h4>
-              <span class="text-[11px] text-slate-400 font-medium">Sheets'te "GİRİŞ_LOGLARI" sayfasında tutulur</span>
+              <span class="text-[11px] text-slate-400 font-medium">Detay için şubeye tıklayın</span>
             </div>
             <div id="branchLastLoginGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               <!-- JS ile doldurulacak -->
@@ -646,17 +647,127 @@
 
   </main>
 
+  <!-- ================================================================= -->
+  <!-- 3. ŞUBEYE ÖZEL GİRİŞ GEÇMİŞİ POP-UP (MODAL) -->
+  <!-- ================================================================= -->
+  <div id="branchHistoryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4" onclick="handleModalBackdropClick(event)">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 animate-scale-up" onclick="event.stopPropagation()">
+      
+      <!-- Modal Başlık -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <div>
+            <h3 id="modalBranchTitle" class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">DERİNCE ŞUBESİ</h3>
+            <p class="text-xs text-slate-400 font-medium">Giriş Geçmişi & Hareket Kayıtları</p>
+          </div>
+        </div>
+        <button onclick="closeBranchHistoryModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- İstatistik Rozetleri -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-blue-50/70 border border-blue-100 rounded-2xl p-3.5 text-center">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 block">Toplam Giriş</span>
+          <p id="modalTotalLogCount" class="text-lg font-black text-blue-900 mt-0.5">0 Kez</p>
+        </div>
+        <div class="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-3.5 text-center">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">En Son Giriş</span>
+          <p id="modalLastLoginTime" class="text-sm font-black text-emerald-900 mt-1 truncate">Henüz Girmedi</p>
+        </div>
+      </div>
+
+      <!-- Şubeye Özel Giriş Tablosu -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Tüm Giriş Kayıtları</h4>
+          <span class="text-[11px] text-slate-400">En yeniden eskiye</span>
+        </div>
+        <div class="max-h-64 overflow-y-auto custom-scrollbar border border-slate-200/80 rounded-2xl">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100/90 sticky top-0 font-bold text-slate-700 border-b border-slate-200">
+              <tr>
+                <th class="p-3">Tarih & Saat</th>
+                <th class="p-3 text-center">Dönem</th>
+                <th class="p-3 text-center">Durum</th>
+              </tr>
+            </thead>
+            <tbody id="modalBranchLogsBody" class="divide-y divide-slate-100 font-medium">
+              <!-- JS ile doldurulacak -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Kapat Butonu -->
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeBranchHistoryModal()" class="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm">
+          Kapat
+        </button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- TOAST BİLDİRİM BİLEŞENİ -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full px-4"></div>
 
   <!-- ================================================================= -->
-  <!-- 3. JAVASCRIPT KODLARI -->
+  <!-- 4. JAVASCRIPT KODLARI -->
   <!-- ================================================================= -->
   <script>
     function getDefaultCurrentMonth() {
       const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
       const d = new Date();
       return `${months[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    // Tarih ve Saati Temiz Türkçe Formata Çevirir (Tue Nov 03 2026 GMT+0300 karmaşasını önler!)
+    function cleanTurkishDateTime(rawVal) {
+      if (!rawVal) return "Henüz giriş yapmadı";
+      let str = rawVal.toString().trim();
+      
+      // Zaten temiz Türkçe "03.11.2026 17:26" formatındaysa
+      if (str.match(/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}/)) {
+        return str.substring(0, 16);
+      }
+
+      // Eğer GMT / Date string ise parse et
+      try {
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          return `${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+      } catch(e) {}
+
+      return str;
+    }
+
+    // Dönem Adını Temiz Türkçe Formata Çevirir (Sun Nov 01 2026... karmaşasını önler!)
+    function cleanTurkishMonth(rawVal) {
+      if (!rawVal) return getDefaultCurrentMonth();
+      let str = rawVal.toString().trim();
+
+      if (str.includes("GMT") || str.includes("Türkiye")) {
+        try {
+          const d = new Date(str);
+          if (!isNaN(d.getTime())) {
+            const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+            return `${months[d.getMonth()]} ${d.getFullYear()}`;
+          }
+        } catch(e) {}
+      }
+
+      return str;
     }
 
     // Google Apps Script Web App Bağlantı Adresi
@@ -742,16 +853,17 @@
       }
 
       validMonths.forEach(m => {
+        const cleanM = cleanTurkishMonth(m);
         const opt1 = document.createElement("option");
-        opt1.value = m;
-        opt1.textContent = m;
-        if (m === activeMonth || (!activeMonth && m === validMonths[0])) opt1.selected = true;
+        opt1.value = cleanM;
+        opt1.textContent = cleanM;
+        if (cleanM === activeMonth || (!activeMonth && cleanM === validMonths[0])) opt1.selected = true;
         bSelect.appendChild(opt1);
 
         const opt2 = document.createElement("option");
-        opt2.value = m;
-        opt2.textContent = m;
-        if (m === activeMonth || (!activeMonth && m === validMonths[0])) opt2.selected = true;
+        opt2.value = cleanM;
+        opt2.textContent = cleanM;
+        if (cleanM === activeMonth || (!activeMonth && cleanM === validMonths[0])) opt2.selected = true;
         aSelect.appendChild(opt2);
       });
 
@@ -815,7 +927,6 @@
           });
           result = await res.json();
         } else {
-          // Demo
           await new Promise(r => setTimeout(r, 500));
           const found = DEMO_OCTOBER_DATA.find(d => d.branch.toLocaleUpperCase('tr-TR') === branchName.toLocaleUpperCase('tr-TR'));
           if (found) {
@@ -824,7 +935,7 @@
               branch: found.branch,
               month: month,
               oran: found.oran,
-              lastUpdated: new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+              lastUpdated: cleanTurkishDateTime(new Date())
             };
           } else {
             result = { success: false, error: "Şube bu dönem listesinde bulunamadı." };
@@ -860,10 +971,10 @@
       document.getElementById("branchDashboard").classList.remove("hidden");
 
       document.getElementById("dashBranchTitle").textContent = `${data.branch} ŞUBESİ`;
-      document.getElementById("dashMonthBadge").textContent = data.month;
+      document.getElementById("dashMonthBadge").textContent = cleanTurkishMonth(data.month);
       
       document.getElementById("dashOranVal").textContent = formatPercent(data.oran);
-      document.getElementById("dashLastUpdated").textContent = data.lastUpdated || "Bugün";
+      document.getElementById("dashLastUpdated").textContent = cleanTurkishDateTime(data.lastUpdated);
 
       const oranNum = typeof data.oran === "number" ? data.oran : parseFloat(data.oran) || 0;
       const progressWidth = Math.min(100, Math.max(0, oranNum));
@@ -926,7 +1037,6 @@
           });
           result = await res.json();
         } else {
-          // Demo
           await new Promise(r => setTimeout(r, 500));
           if (password === "Hedefadmin2026.*") {
             const sumKota = DEMO_OCTOBER_DATA.reduce((a, b) => a + b.kota, 0);
@@ -938,7 +1048,7 @@
               months: [getDefaultCurrentMonth()],
               branches: DEMO_OCTOBER_DATA.map(d => ({ name: d.branch, kota: d.kota, netPesinat: d.netPesinat, oran: d.oran })),
               totals: { name: "GENEL TOPLAM", kota: sumKota, netPesinat: sumPesinat, oran: sumOran },
-              passwords: DEMO_OCTOBER_DATA.map(d => ({ branch: d.branch, password: "1234" })),
+              passwords: DEMO_OCTOBER_DATA.map(d => ({ branch: d.branch, password: "" })),
               logs: [],
               lastLogins: {}
             };
@@ -950,8 +1060,19 @@
         if (result && result.success) {
           currentAdminBranches = result.branches || [];
           currentAdminTotals = result.totals;
-          currentAdminLogs = result.logs || [];
-          currentAdminLastLogins = result.lastLogins || {};
+          currentAdminLogs = (result.logs || []).map(l => ({
+            ...l,
+            dateTime: cleanTurkishDateTime(l.dateTime),
+            month: cleanTurkishMonth(l.month)
+          }));
+          
+          currentAdminLastLogins = {};
+          if (result.lastLogins) {
+            for (const [b, t] of Object.entries(result.lastLogins)) {
+              currentAdminLastLogins[b] = cleanTurkishDateTime(t);
+            }
+          }
+
           showAdminDashboard(result);
           showToast("Yönetici girişi başarılı", "success");
         } else {
@@ -971,7 +1092,7 @@
 
       renderAdminTable(data.branches, data.totals);
       renderBranchPasswords(data.passwords);
-      renderLoginLogsUI(data.logs || [], data.lastLogins || {});
+      renderLoginLogsUI(currentAdminLogs, currentAdminLastLogins);
     }
 
     function renderAdminTable(branches, totals) {
@@ -992,15 +1113,20 @@
         // Son giriş bilgisi
         const lastLoginTime = currentAdminLastLogins[b.name] || null;
         const loginBadge = lastLoginTime ? 
-          `<span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700"><i class="fa-solid fa-clock text-[10px] text-blue-500"></i><span>${lastLoginTime}</span></span>` : 
+          `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60"><i class="fa-regular fa-clock text-[11px] text-blue-500"></i><span>${lastLoginTime}</span></span>` : 
           `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50">Henüz Girmedi</span>`;
 
         const tr = document.createElement("tr");
         tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
         tr.innerHTML = `
-          <td class="px-4 sm:px-6 py-4 font-bold text-slate-900 text-sm sm:text-base">${b.name}</td>
+          <td class="px-4 sm:px-6 py-4">
+            <button onclick="openBranchHistoryModal('${b.name}')" class="font-bold text-slate-900 hover:text-blue-600 transition flex items-center space-x-2 text-left group">
+              <span class="text-sm sm:text-base group-hover:underline">${b.name}</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 group-hover:text-blue-600 transition"></i>
+            </button>
+          </td>
           <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-600 text-base sm:text-lg">%${formatPercent(b.oran)}</td>
-          <td class="px-4 sm:px-6 py-4 text-center">${loginBadge}</td>
+          <td class="px-4 sm:px-6 py-4 text-center cursor-pointer" onclick="openBranchHistoryModal('${b.name}')">${loginBadge}</td>
           <td class="px-4 sm:px-6 py-4">
             <div class="flex items-center space-x-3">
               <div class="flex-grow bg-slate-200/70 rounded-full h-2.5 overflow-hidden">
@@ -1055,24 +1181,26 @@
       currentAdminLogs = logs || [];
       currentAdminLastLogins = lastLogins || {};
 
-      // 1. Şubelerin En Son Giriş Kartları
       const grid = document.getElementById("branchLastLoginGrid");
       grid.innerHTML = "";
 
       const branchList = currentAdminBranches.map(b => b.name);
       if (branchList.length === 0) {
-        // Eğer liste boşsa bilinen şubeler
         ["PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ", "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"].forEach(b => branchList.push(b));
       }
 
       branchList.forEach(branch => {
         const time = currentAdminLastLogins[branch] || null;
         const card = document.createElement("div");
-        card.className = "bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-center justify-between";
+        card.className = "bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-300 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer transition active:scale-[0.99] group shadow-sm";
+        card.onclick = () => openBranchHistoryModal(branch);
         card.innerHTML = `
           <div class="min-w-0 pr-2">
-            <h5 class="text-xs font-black text-slate-800 truncate">${branch}</h5>
-            <span class="text-[11px] font-bold ${time ? 'text-blue-600' : 'text-slate-400'} block mt-0.5">
+            <h5 class="text-xs font-black text-slate-800 group-hover:text-blue-700 transition truncate flex items-center space-x-1.5">
+              <span>${branch}</span>
+              <i class="fa-solid fa-magnifying-glass text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition"></i>
+            </h5>
+            <span class="text-[11px] font-bold ${time ? 'text-blue-600' : 'text-slate-400'} block mt-0.5 truncate">
               ${time ? time : 'Henüz giriş yapmadı'}
             </span>
           </div>
@@ -1083,7 +1211,6 @@
         grid.appendChild(card);
       });
 
-      // 2. Kronolojik Log Tablosu
       renderLogsTableRows(currentAdminLogs);
     }
 
@@ -1102,10 +1229,14 @@
         tr.innerHTML = `
           <td class="px-4 sm:px-6 py-3.5 font-mono text-xs font-bold text-slate-700 flex items-center space-x-2">
             <i class="fa-regular fa-clock text-blue-500"></i>
-            <span>${log.dateTime}</span>
+            <span>${cleanTurkishDateTime(log.dateTime)}</span>
           </td>
-          <td class="px-4 sm:px-6 py-3.5 font-bold text-slate-900">${log.branch}</td>
-          <td class="px-4 sm:px-6 py-3.5 text-center font-bold text-slate-600">${log.month}</td>
+          <td class="px-4 sm:px-6 py-3.5">
+            <button onclick="openBranchHistoryModal('${log.branch}')" class="font-bold text-slate-900 hover:text-blue-600 hover:underline transition">
+              ${log.branch}
+            </button>
+          </td>
+          <td class="px-4 sm:px-6 py-3.5 text-center font-bold text-slate-600">${cleanTurkishMonth(log.month)}</td>
           <td class="px-4 sm:px-6 py-3.5 text-center">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 inline-block"></span>
@@ -1141,7 +1272,20 @@
           });
           const data = await res.json();
           if (data.success) {
-            renderLoginLogsUI(data.logs, data.lastLogins);
+            currentAdminLogs = (data.logs || []).map(l => ({
+              ...l,
+              dateTime: cleanTurkishDateTime(l.dateTime),
+              month: cleanTurkishMonth(l.month)
+            }));
+            
+            currentAdminLastLogins = {};
+            if (data.lastLogins) {
+              for (const [b, t] of Object.entries(data.lastLogins)) {
+                currentAdminLastLogins[b] = cleanTurkishDateTime(t);
+              }
+            }
+
+            renderLoginLogsUI(currentAdminLogs, currentAdminLastLogins);
             renderAdminTable(currentAdminBranches, currentAdminTotals);
             showToast("Giriş logları güncellendi", "success");
           } else {
@@ -1153,6 +1297,58 @@
       } finally {
         btn.innerHTML = '<i class="fa-solid fa-arrows-rotate text-xs"></i><span>Logları Yenile</span>';
         btn.disabled = false;
+      }
+    }
+
+    // ==========================================
+    // ŞUBEYE ÖZEL GİRİŞ GEÇMİŞİ MODAL (POP-UP)
+    // ==========================================
+    function openBranchHistoryModal(branchName) {
+      document.getElementById("modalBranchTitle").textContent = `${branchName} ŞUBESİ`;
+      
+      const lastLogin = currentAdminLastLogins[branchName] || null;
+      document.getElementById("modalLastLoginTime").textContent = lastLogin ? lastLogin : "Henüz Girmedi";
+
+      // Sadece bu şubeye ait logları filtrele
+      const branchLogs = currentAdminLogs.filter(l => l.branch.toLocaleUpperCase('tr-TR') === branchName.toLocaleUpperCase('tr-TR'));
+      document.getElementById("modalTotalLogCount").textContent = `${branchLogs.length} Kez Giriş`;
+
+      const tbody = document.getElementById("modalBranchLogsBody");
+      tbody.innerHTML = "";
+
+      if (branchLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-400 font-semibold">Bu şubeye ait giriş kaydı bulunamadı.</td></tr>`;
+      } else {
+        branchLogs.forEach(l => {
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+          tr.innerHTML = `
+            <td class="p-3 font-mono font-bold text-slate-700 flex items-center space-x-1.5">
+              <i class="fa-regular fa-clock text-blue-500 text-[11px]"></i>
+              <span>${cleanTurkishDateTime(l.dateTime)}</span>
+            </td>
+            <td class="p-3 text-center font-bold text-slate-600">${cleanTurkishMonth(l.month)}</td>
+            <td class="p-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 inline-block"></span>
+                <span>Başarılı</span>
+              </span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById("branchHistoryModal").classList.remove("hidden");
+    }
+
+    function closeBranchHistoryModal() {
+      document.getElementById("branchHistoryModal").classList.add("hidden");
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target.id === "branchHistoryModal") {
+        closeBranchHistoryModal();
       }
     }
 
