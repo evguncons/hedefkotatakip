@@ -1112,7 +1112,7 @@
         const progressWidth = Math.min(100, Math.max(0, oranNum * 5));
         
         // Son giriş bilgisi
-        const lastLoginTime = currentAdminLastLogins[b.name] || null;
+        const lastLoginTime = getBranchLastLoginTime(b.name);
         const loginBadge = lastLoginTime ? 
           `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60"><i class="fa-regular fa-clock text-[11px] text-blue-500"></i><span>${lastLoginTime}</span></span>` : 
           `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50">Henüz Girmedi</span>`;
@@ -1178,6 +1178,24 @@
     // ==========================================
     // LOGLAR & GİRİŞ GEÇMİŞİ YÖNETİMİ
     // ==========================================
+        // Şube Son Giriş Zamanını Türkçe karakter duyarsız güvenle bulur
+    function getBranchLastLoginTime(branchName) {
+      if (!currentAdminLastLogins || !branchName) return null;
+      if (currentAdminLastLogins[branchName]) return currentAdminLastLogins[branchName];
+
+      const norm = (s) => (s || "").toString().trim()
+        .replace(/İ/g, "i").replace(/I/g, "ı")
+        .toLocaleLowerCase('tr-TR');
+      const target = norm(branchName);
+
+      for (const [key, val] of Object.entries(currentAdminLastLogins)) {
+        if (norm(key) === target) {
+          return val;
+        }
+      }
+      return null;
+    }
+
     function renderLoginLogsUI(logs, lastLogins) {
       currentAdminLogs = logs || [];
       currentAdminLastLogins = lastLogins || {};
@@ -1191,7 +1209,7 @@
       }
 
       branchList.forEach(branch => {
-        const time = currentAdminLastLogins[branch] || null;
+        const time = getBranchLastLoginTime(branch);
         const card = document.createElement("div");
         card.className = "bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-300 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer transition active:scale-[0.99] group shadow-sm";
         card.onclick = () => openBranchHistoryModal(branch);
@@ -1268,7 +1286,8 @@
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
               action: "getLogs",
-              adminPassword: currentAdminPassword
+              adminPassword: currentAdminPassword,
+              password: currentAdminPassword
             })
           });
           const data = await res.json();
@@ -1307,11 +1326,13 @@
     function openBranchHistoryModal(branchName) {
       document.getElementById("modalBranchTitle").textContent = `${branchName} ŞUBESİ`;
       
-      const lastLogin = currentAdminLastLogins[branchName] || null;
+      const lastLogin = getBranchLastLoginTime(branchName);
       document.getElementById("modalLastLoginTime").textContent = lastLogin ? lastLogin : "Henüz Girmedi";
 
-      // Sadece bu şubeye ait logları filtrele
-      const branchLogs = currentAdminLogs.filter(l => l.branch.toLocaleUpperCase('tr-TR') === branchName.toLocaleUpperCase('tr-TR'));
+      // Sadece bu şubeye ait logları Türkçe karakter toleransıyla filtrele
+      const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
+      const target = norm(branchName);
+      const branchLogs = currentAdminLogs.filter(l => norm(l.branch) === target);
       document.getElementById("modalTotalLogCount").textContent = `${branchLogs.length} Kez Giriş`;
 
       const tbody = document.getElementById("modalBranchLogsBody");
