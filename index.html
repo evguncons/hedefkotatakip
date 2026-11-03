@@ -1031,6 +1031,7 @@
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
               action: "adminLogin",
+              password: password,
               adminPassword: password,
               month: currentAdminMonth
             })
@@ -1365,7 +1366,10 @@
       container.innerHTML = "";
       const query = (q || "").trim().toLocaleLowerCase('tr-TR');
 
-      const filtered = allLoadedPasswords.filter(p => p.branch.toLocaleLowerCase('tr-TR').includes(query));
+      const filtered = allLoadedPasswords.filter(p => {
+        const b = (p.branch || p.name || "").toString();
+        return b.toLocaleLowerCase('tr-TR').includes(query);
+      });
 
       if (filtered.length === 0) {
         container.innerHTML = `<p class="py-4 text-center text-xs text-slate-400 font-semibold">Şube bulunamadı.</p>`;
@@ -1373,18 +1377,20 @@
       }
 
       filtered.forEach(item => {
+        const bName = (item.branch || item.name || "").toString();
+        const pwd = (item.password !== undefined && item.password !== null) ? item.password.toString() : "";
         const div = document.createElement("div");
-        div.className = "py-3 flex items-center justify-between gap-3";
+        div.className = "py-3 flex items-center justify-between gap-3 border-b border-slate-100 last:border-0";
         div.innerHTML = `
           <div class="flex items-center space-x-3 min-w-0">
             <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
               <i class="fa-solid fa-store"></i>
             </div>
-            <span class="text-xs sm:text-sm font-bold text-slate-900 truncate">${item.branch}</span>
+            <span class="text-xs sm:text-sm font-bold text-slate-900 truncate">${bName}</span>
           </div>
           <div class="flex items-center space-x-2 flex-shrink-0">
-            <input type="text" id="pwd_${item.branch}" value="${item.password || ''}" placeholder="Şifre belirle" class="w-24 sm:w-28 text-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-rose-500">
-            <button onclick="saveSingleBranchPassword('${item.branch}')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition active:scale-95" title="Sheets'e Kaydet">
+            <input type="text" id="pwd_${bName}" value="${pwd}" placeholder="Şifre giriniz" class="w-24 sm:w-28 text-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-rose-500">
+            <button onclick="saveSingleBranchPassword('${bName}')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition active:scale-95" title="Sheets SİSTEM_AYARLAR Sayfasına Kaydet">
               <i class="fa-solid fa-check"></i>
             </button>
           </div>
@@ -1405,6 +1411,7 @@
             body: JSON.stringify({
               action: "updateBranchPassword",
               adminPassword: currentAdminPassword,
+              password: currentAdminPassword,
               branchName: branchName,
               newPassword: newPassword
             })
