@@ -489,10 +489,16 @@
               </div>
             </div>
 
-            <button onclick="refreshLoginLogs()" id="btnRefreshLogs" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-xl text-xs font-bold transition flex items-center space-x-2">
-              <i class="fa-solid fa-arrows-rotate text-xs"></i>
-              <span>Logları Yenile</span>
-            </button>
+            <div class="flex items-center space-x-2">
+              <button onclick="refreshLoginLogs()" id="btnRefreshLogs" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-xl text-xs font-bold transition flex items-center space-x-2">
+                <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                <span>Logları Yenile</span>
+              </button>
+              <button onclick="clearAllLoginLogsAction()" id="btnClearLogs" class="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5" title="Sheets'teki tüm giriş loglarını sıfırla">
+                <i class="fa-regular fa-trash-can text-xs"></i>
+                <span>Logları Temizle</span>
+              </button>
+            </div>
           </div>
 
           <!-- Şube Bazında Son Giriş Özeti (Tıklanabilir Kartlar) -->
@@ -727,6 +733,20 @@
     }
 
     // Tarih ve Saati Temiz Türkçe Formata Çevirir (Tue Nov 03 2026 GMT+0300 karmaşasını önler!)
+    
+    function isRealBranch(name) {
+  if (!name) return false;
+  const str = name.toString().trim();
+  if (str.length < 2) return false;
+  if (/^[-_*#=~]+/.test(str)) return false;
+  const norm = str.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
+  if (norm.includes('toplam') || norm.includes('total')) return false;
+  if (norm.includes('sifre')) return false;
+  if (norm.includes('ayar') || norm.includes('admin')) return false;
+  if (norm.includes('seciniz')) return false;
+  return true;
+}
+
     function cleanTurkishDateTime(rawVal) {
       if (!rawVal) return "Henüz giriş yapmadı";
       let str = rawVal.toString().trim();
@@ -821,7 +841,7 @@
           if (data.branches && data.branches.length > 0) {
             const select = document.getElementById("branchNameSelect");
             select.innerHTML = '<option value="" disabled selected>Şubenizi Seçiniz...</option>';
-            data.branches.forEach(b => {
+            data.branches.filter(b => isRealBranch(b.name || b.branch)).forEach(b => {
               const opt = document.createElement("option");
               opt.value = b;
               opt.textContent = b;
@@ -1203,7 +1223,7 @@
       const grid = document.getElementById("branchLastLoginGrid");
       grid.innerHTML = "";
 
-      const branchList = currentAdminBranches.map(b => b.name);
+      const branchList = currentAdminBranches.map(b => b.name).filter(isRealBranch);
       if (branchList.length === 0) {
         ["PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ", "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"].forEach(b => branchList.push(b));
       }
@@ -1272,6 +1292,52 @@
       if (!currentAdminLogs) return;
       const filtered = currentAdminLogs.filter(l => l.branch.toLocaleLowerCase('tr-TR').includes(q));
       renderLogsTableRows(filtered);
+    }
+
+    
+    async function clearAllLoginLogsAction() {
+      if (!confirm("Google Sheets'teki tüm şube giriş loglarını ve geçmiş kayıtlarını silmek istediğinize emin misiniz?")) {
+        return;
+      }
+
+      const btn = document.getElementById("btnClearLogs");
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-xs"></i><span>Siliniyor...</span>';
+
+      try {
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "clearLogs",
+              adminPassword: currentAdminPassword,
+              password: currentAdminPassword
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            currentAdminLogs = [];
+            currentAdminLastLogins = {};
+            renderLoginLogsUI([], {});
+            renderAdminTable(currentAdminBranches, currentAdminTotals);
+            showToast("Tüm giriş logları başarıyla temizlendi", "success");
+          } else {
+            showToast(data.error || "Loglar silinemedi", "error");
+          }
+        } else {
+          currentAdminLogs = [];
+          currentAdminLastLogins = {};
+          renderLoginLogsUI([], {});
+          renderAdminTable(currentAdminBranches, currentAdminTotals);
+          showToast("Tüm giriş logları temizlendi (Demo)", "success");
+        }
+      } catch (err) {
+        showToast("Hata: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-regular fa-trash-can text-xs"></i><span>Logları Temizle</span>';
+      }
     }
 
     async function refreshLoginLogs() {
@@ -1378,7 +1444,7 @@
     // ŞİFRELER
     // ==========================================
     function renderBranchPasswords(passwords) {
-      allLoadedPasswords = passwords || [];
+      allLoadedPasswords = (passwords || []).filter(p => isRealBranch(p.branch || p.name));
       filterPasswordList(document.getElementById("pwdSearchInput")?.value || "");
     }
 
