@@ -489,16 +489,10 @@
               </div>
             </div>
 
-            <div class="flex items-center space-x-2">
-              <button onclick="refreshLoginLogs()" id="btnRefreshLogs" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-xl text-xs font-bold transition flex items-center space-x-2">
-                <i class="fa-solid fa-arrows-rotate text-xs"></i>
-                <span>Logları Yenile</span>
-              </button>
-              <button onclick="clearAllLoginLogsAction()" id="btnClearLogs" class="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5" title="Sheets'teki tüm giriş loglarını sıfırla">
-                <i class="fa-regular fa-trash-can text-xs"></i>
-                <span>Logları Temizle</span>
-              </button>
-            </div>
+            <button onclick="refreshLoginLogs()" id="btnRefreshLogs" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-xl text-xs font-bold transition flex items-center space-x-2">
+              <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              <span>Logları Yenile</span>
+            </button>
           </div>
 
           <!-- Şube Bazında Son Giriş Özeti (Tıklanabilir Kartlar) -->
@@ -734,18 +728,24 @@
 
     // Tarih ve Saati Temiz Türkçe Formata Çevirir (Tue Nov 03 2026 GMT+0300 karmaşasını önler!)
     
-    function isRealBranch(name) {
-  if (!name) return false;
-  const str = name.toString().trim();
-  if (str.length < 2) return false;
-  if (/^[-_*#=~]+/.test(str)) return false;
-  const norm = str.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
-  if (norm.includes('toplam') || norm.includes('total')) return false;
-  if (norm.includes('sifre')) return false;
-  if (norm.includes('ayar') || norm.includes('admin')) return false;
-  if (norm.includes('seciniz')) return false;
-  return true;
-}
+    const OFFICIAL_HEDEF_BRANCHES = [
+      "PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ",
+      "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"
+    ];
+
+    function isRealBranch(item) {
+      if (!item) return false;
+      const name = typeof item === 'object' ? (item.name || item.branch || '') : item;
+      const str = name.toString().trim();
+      if (str.length < 2) return false;
+      if (/^[-_*#=~]+/.test(str)) return false;
+      const norm = str.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
+      if (norm.includes('toplam') || norm.includes('total')) return false;
+      if (norm.includes('sifre')) return false;
+      if (norm.includes('ayar') || norm.includes('admin')) return false;
+      if (norm.includes('seciniz')) return false;
+      return true;
+    }
 
     function cleanTurkishDateTime(rawVal) {
       if (!rawVal) return "Henüz giriş yapmadı";
@@ -832,28 +832,68 @@
       fetchInitialBranchesAndMonths();
     });
 
+    const OFFICIAL_HEDEF_BRANCHES = [
+      "PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ",
+      "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"
+    ];
+
     async function fetchInitialBranchesAndMonths() {
+      // Sayfa açılır açılmaz resmi Hedef AVM şubelerini anında doldur
+      populateBranchDropdown(OFFICIAL_HEDEF_BRANCHES);
+
       if (!API_URL) return;
       try {
         const res = await fetch(`${API_URL}?action=getBranches`);
         const data = await res.json();
-        if (data.success) {
+        if (data && data.success) {
           if (data.branches && data.branches.length > 0) {
-            const select = document.getElementById("branchNameSelect");
-            select.innerHTML = '<option value="" disabled selected>Şubenizi Seçiniz...</option>';
-            data.branches.filter(b => isRealBranch(b.name || b.branch)).forEach(b => {
-              const opt = document.createElement("option");
-              opt.value = b;
-              opt.textContent = b;
-              select.appendChild(opt);
-            });
+            populateBranchDropdown(data.branches);
           }
           if (data.months && data.months.length > 0) {
             updateMonthDropdowns(data.months, data.activeMonth);
           }
         }
       } catch (err) {
-        console.warn("API şube listesi alınamadı:", err);
+        console.warn("API şube listesi alınamadı, resmi Hedef AVM şubeleri korunuyor:", err);
+      }
+    }
+
+    function populateBranchDropdown(list) {
+      const select = document.getElementById("branchNameSelect");
+      if (!select) return;
+
+      const currentVal = select.value;
+      select.innerHTML = '<option value="" disabled selected>Şubenizi Seçiniz...</option>';
+
+      let validBranches = [];
+      if (list && Array.isArray(list)) {
+        list.forEach(b => {
+          const bName = typeof b === 'object' && b ? (b.name || b.branch || '') : b;
+          if (isRealBranch(bName)) {
+            const str = bName.toString().trim();
+            if (!validBranches.includes(str)) {
+              validBranches.push(str);
+            }
+          }
+        });
+      }
+
+      // 13 Resmi Hedef AVM mağazasını her zaman garanti et
+      OFFICIAL_HEDEF_BRANCHES.forEach(ob => {
+        if (!validBranches.includes(ob)) {
+          validBranches.push(ob);
+        }
+      });
+
+      validBranches.sort((a, b) => a.localeCompare(b, 'tr')).forEach(b => {
+        const opt = document.createElement("option");
+        opt.value = b;
+        opt.textContent = b;
+        select.appendChild(opt);
+      });
+
+      if (currentVal && validBranches.includes(currentVal)) {
+        select.value = currentVal;
       }
     }
 
@@ -1295,50 +1335,7 @@
     }
 
     
-    async function clearAllLoginLogsAction() {
-      if (!confirm("Google Sheets'teki tüm şube giriş loglarını ve geçmiş kayıtlarını silmek istediğinize emin misiniz?")) {
-        return;
-      }
-
-      const btn = document.getElementById("btnClearLogs");
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin text-xs"></i><span>Siliniyor...</span>';
-
-      try {
-        if (API_URL) {
-          const res = await fetch(API_URL, {
-            method: "POST",
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({
-              action: "clearLogs",
-              adminPassword: currentAdminPassword,
-              password: currentAdminPassword
-            })
-          });
-          const data = await res.json();
-          if (data.success) {
-            currentAdminLogs = [];
-            currentAdminLastLogins = {};
-            renderLoginLogsUI([], {});
-            renderAdminTable(currentAdminBranches, currentAdminTotals);
-            showToast("Tüm giriş logları başarıyla temizlendi", "success");
-          } else {
-            showToast(data.error || "Loglar silinemedi", "error");
-          }
-        } else {
-          currentAdminLogs = [];
-          currentAdminLastLogins = {};
-          renderLoginLogsUI([], {});
-          renderAdminTable(currentAdminBranches, currentAdminTotals);
-          showToast("Tüm giriş logları temizlendi (Demo)", "success");
-        }
-      } catch (err) {
-        showToast("Hata: " + err.message, "error");
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-regular fa-trash-can text-xs"></i><span>Logları Temizle</span>';
-      }
-    }
+    
 
     async function refreshLoginLogs() {
       const btn = document.getElementById("btnRefreshLogs");
