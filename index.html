@@ -5,49 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Hedef AVM - Şube Kota & Net Peşinat Takip Sistemi</title>
   
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="./assets/site.css">
   <!-- Font Awesome Free Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
-  <!-- SheetJS (Excel & CSV okuyucu) -->
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <!-- Google Fonts: Plus Jakarta Sans -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-          },
-          colors: {
-            hedef: {
-              50: '#fff1f2',
-              100: '#ffe4e6',
-              500: '#f43f5e',
-              600: '#e11d48',
-              700: '#be123c',
-              800: '#9f1239',
-              900: '#881337',
-              dark: '#090d16',
-              surface: '#0f172a',
-              card: '#1e293b',
-            }
-          },
-          boxShadow: {
-            'glow-red': '0 0 25px -5px rgba(225, 29, 72, 0.35)',
-            'glow-emerald': '0 0 25px -5px rgba(16, 185, 129, 0.35)',
-            'glow-blue': '0 0 25px -5px rgba(37, 99, 235, 0.35)',
-            'soft': '0 10px 30px -5px rgba(0, 0, 0, 0.05)',
-            'card': '0 4px 20px -2px rgba(15, 23, 42, 0.06)',
-          }
-        }
-      }
-    }
-  </script>
   
   <style>
     * {
@@ -867,7 +831,7 @@
             populateBranchDropdown(data.branches);
           }
           if (data.months && data.months.length > 0) {
-            updateMonthDropdowns(data.months, data.activeMonth);
+            updateMonthDropdowns(data.months, data.activeMonth || data.currentMonth);
           }
         }
       } catch (err) {
@@ -917,6 +881,8 @@
     function updateMonthDropdowns(months, activeMonth) {
       const bSelect = document.getElementById("branchMonthSelect");
       const aSelect = document.getElementById("adminMonthSelect");
+      const previousBranchMonth = bSelect.value;
+      const previousAdminMonth = aSelect.value;
       bSelect.innerHTML = "";
       aSelect.innerHTML = "";
 
@@ -944,7 +910,9 @@
         aSelect.appendChild(opt2);
       });
 
-      currentAdminMonth = (activeMonth && !activeMonth.toLowerCase().startsWith("sayfa")) ? activeMonth : validMonths[0];
+      if (validMonths.includes(previousBranchMonth)) bSelect.value = previousBranchMonth;
+      if (validMonths.includes(previousAdminMonth)) aSelect.value = previousAdminMonth;
+      currentAdminMonth = aSelect.value;
     }
 
     function switchMainView(view) {
@@ -1755,10 +1723,33 @@
       }
     }
 
+    let spreadsheetLibraryPromise;
+    function loadSpreadsheetLibrary() {
+      if (window.XLSX) return Promise.resolve(window.XLSX);
+      if (!spreadsheetLibraryPromise) {
+        spreadsheetLibraryPromise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js";
+          const fail = () => {
+            script.remove();
+            reject(new Error("Excel bileşeni yüklenemedi. Tekrar deneyin."));
+          };
+          script.onload = () => window.XLSX ? resolve(window.XLSX) : fail();
+          script.onerror = fail;
+          document.head.appendChild(script);
+        }).catch(err => {
+          spreadsheetLibraryPromise = null;
+          throw err;
+        });
+      }
+      return spreadsheetLibraryPromise;
+    }
+
     function processExcelFile(file) {
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = async function(e) {
         try {
+          const XLSX = await loadSpreadsheetLibrary();
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
           const firstSheetName = workbook.SheetNames[0];
@@ -1972,10 +1963,15 @@
       }, 3500);
     }
 
-    function exportTableToExcel() {
-      const table = document.getElementById("mainAdminTable");
-      const wb = XLSX.utils.table_to_book(table, { sheet: currentAdminMonth });
-      XLSX.writeFile(wb, `Hedef_AVM_Kota_${currentAdminMonth.replace(/\s+/g, '_')}.xlsx`);
+    async function exportTableToExcel() {
+      try {
+        const XLSX = await loadSpreadsheetLibrary();
+        const table = document.getElementById("mainAdminTable");
+        const wb = XLSX.utils.table_to_book(table, { sheet: currentAdminMonth });
+        XLSX.writeFile(wb, `Hedef_AVM_Kota_${currentAdminMonth.replace(/\s+/g, '_')}.xlsx`);
+      } catch (err) {
+        showToast("Excel dışa aktarma hatası: " + err.message, "error");
+      }
     }
   </script>
 </body>
