@@ -287,15 +287,29 @@
                 <span class="text-2xl sm:text-3xl font-bold text-rose-200">%</span>
                 <span id="dashOranVal" class="text-5xl sm:text-6xl font-black tracking-tight">0,00</span>
               </div>
-
-              <!-- Şube Başarı Sıralaması Rozeti -->
-              <div id="dashRankBadge" class="mt-3.5 inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 text-xs sm:text-sm font-extrabold shadow-sm">
-                <span id="dashRankIcon" class="text-base sm:text-lg">🏆</span>
-                <span id="dashRankText">13 mağaza arasında 1. sıradasınız</span>
-              </div>
               
               <p class="text-xs text-rose-100/90 font-medium mt-3">Kotanın yüzde kaçının tamamlandığını gösterir</p>
             </div>
+
+            <!-- MAĞAZA SIRALAMASI KARTI -->
+            <div id="dashRankBadge" class="hidden relative overflow-hidden rounded-3xl border-2 p-5 sm:p-6 text-left transition-all">
+              <div id="dashRankGlow" class="absolute -right-10 -top-10 w-40 h-40 rounded-full blur-2xl opacity-60 pointer-events-none"></div>
+              <div class="relative flex items-center gap-4 sm:gap-5">
+                <div id="dashRankCircle" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center flex-shrink-0 border-4 shadow-lg">
+                  <span id="dashRankNumber" class="text-3xl sm:text-4xl font-black leading-none">1</span>
+                  <span class="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider opacity-80 mt-0.5">SIRA</span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span id="dashRankIcon" class="text-2xl sm:text-3xl leading-none">🏆</span>
+                    <span id="dashRankLabel" class="text-[11px] sm:text-xs font-extrabold uppercase tracking-widest">MAĞAZA SIRALAMASI</span>
+                  </div>
+                  <p id="dashRankText" class="text-lg sm:text-2xl font-black leading-tight text-slate-900">13 mağaza arasında birinci sıradasınız</p>
+                  <div class="mt-3 flex items-center gap-1" id="dashRankDots"></div>
+                </div>
+              </div>
+            </div>
+
 
             <!-- İlerleme Çubuğu -->
             <div class="space-y-2 pt-2">
@@ -1046,22 +1060,45 @@
       // 13 Mağaza Arasındaki Sıralama
       const rankBadge = document.getElementById("dashRankBadge");
       if (data.rank && data.rank > 0) {
-        const ordinals = [
-          "", "birinci", "ikinci", "üçüncü", "dördüncü", "beşinci",
-          "altıncı", "yedinci", "sekizinci", "dokuzuncu", "onuncu",
-          "on birinci", "on ikinci", "on üçüncü"
-        ];
+        const ordinals = ["", "birinci", "ikinci", "üçüncü", "dördüncü", "beşinci", "altıncı", "yedinci",
+          "sekizinci", "dokuzuncu", "onuncu", "on birinci", "on ikinci", "on üçüncü"];
         const total = data.totalBranches || 13;
-        const rankWord = ordinals[data.rank] ? ordinals[data.rank] : `${data.rank}.`;
-        
-        let icon = "📍";
-        if (data.rank === 1) icon = "🥇";
-        else if (data.rank === 2) icon = "🥈";
-        else if (data.rank === 3) icon = "🥉";
-        else if (data.rank <= 5) icon = "⭐";
+        const rank = data.rank;
+        const rankWord = ordinals[rank] || (rank + ".");
 
-        document.getElementById("dashRankIcon").textContent = icon;
+        const themes = {
+          gold:   { card: "bg-gradient-to-br from-amber-50 via-yellow-50 to-amber-100 border-amber-300", glow: "bg-amber-300", circle: "bg-gradient-to-br from-amber-300 to-yellow-500 border-white text-amber-950 shadow-amber-300", label: "text-amber-700", icon: "🥇", title: "ŞAMPİYON MAĞAZA" },
+          silver: { card: "bg-gradient-to-br from-slate-50 via-white to-slate-100 border-slate-300", glow: "bg-slate-300", circle: "bg-gradient-to-br from-slate-200 to-slate-400 border-white text-slate-900 shadow-slate-300", label: "text-slate-600", icon: "🥈", title: "ZİRVEYE ÇOK YAKIN" },
+          bronze: { card: "bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 border-orange-300", glow: "bg-orange-300", circle: "bg-gradient-to-br from-orange-300 to-amber-700 border-white text-white shadow-orange-300", label: "text-orange-700", icon: "🥉", title: "PODYUMDASINIZ" },
+          top:    { card: "bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-300", glow: "bg-emerald-300", circle: "bg-gradient-to-br from-emerald-400 to-teal-600 border-white text-white shadow-emerald-300", label: "text-emerald-700", icon: "⭐", title: "İLK 5'TESİNİZ" },
+          mid:    { card: "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-300", glow: "bg-blue-300", circle: "bg-gradient-to-br from-blue-500 to-indigo-600 border-white text-white shadow-blue-300", label: "text-blue-700", icon: "📈", title: "YÜKSELİŞ ZAMANI" },
+          low:    { card: "bg-gradient-to-br from-rose-50 to-red-50 border-rose-300", glow: "bg-rose-300", circle: "bg-gradient-to-br from-rose-500 to-red-600 border-white text-white shadow-rose-300", label: "text-rose-700", icon: "🚀", title: "HADİ ATAĞA GEÇ" }
+        };
+        let t = themes.low;
+        if (rank === 1) t = themes.gold;
+        else if (rank === 2) t = themes.silver;
+        else if (rank === 3) t = themes.bronze;
+        else if (rank <= 5) t = themes.top;
+        else if (rank <= 9) t = themes.mid;
+
+        rankBadge.className = "relative overflow-hidden rounded-3xl border-2 p-5 sm:p-6 text-left transition-all shadow-card " + t.card;
+        document.getElementById("dashRankGlow").className = "absolute -right-10 -top-10 w-40 h-40 rounded-full blur-2xl opacity-60 pointer-events-none " + t.glow;
+        document.getElementById("dashRankCircle").className = "w-20 h-20 sm:w-24 sm:h-24 rounded-full flex flex-col items-center justify-center flex-shrink-0 border-4 shadow-lg " + t.circle;
+        document.getElementById("dashRankLabel").className = "text-[11px] sm:text-xs font-extrabold uppercase tracking-widest " + t.label;
+        document.getElementById("dashRankLabel").textContent = t.title;
+        document.getElementById("dashRankIcon").textContent = t.icon;
+        document.getElementById("dashRankNumber").textContent = rank;
         document.getElementById("dashRankText").textContent = `${total} mağaza arasında ${rankWord} sıradasınız`;
+
+        const dots = document.getElementById("dashRankDots");
+        dots.innerHTML = "";
+        for (let i = 1; i <= total; i++) {
+          const d = document.createElement("span");
+          d.className = i === rank
+            ? "h-2.5 w-6 rounded-full bg-slate-900"
+            : "h-2.5 w-2.5 rounded-full " + (i < rank ? "bg-slate-300" : "bg-slate-200");
+          dots.appendChild(d);
+        }
         rankBadge.classList.remove("hidden");
       } else {
         rankBadge.classList.add("hidden");
@@ -1193,30 +1230,86 @@
       tbody.innerHTML = "";
       tfoot.innerHTML = "";
 
-      if (!branches || branches.length === 0) {
+      const list = (branches || []).filter(b => isRealBranch(b.name || b.branch));
+      if (list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 font-semibold">Bu döneme ait kota verisi bulunamadı.</td></tr>`;
         return;
       }
 
-      // Eğer totals boşsa veya oranı 0 ise şubelerden otomatik hesapla
-      if (!totals || !totals.oran || totals.oran === 0) {
-        const validBranches = branches.filter(b => b.oran && b.oran > 0);
-        if (validBranches.length > 0) {
-          const avg = validBranches.reduce((a, b) => a + b.oran, 0) / validBranches.length;
-          totals = { name: "GENEL TOPLAM", oran: parseFloat(avg.toFixed(2)) };
+      // Gerçek sıra (filtre/sıralama yönünden bağımsız, orana göre)
+      const rankMap = {};
+      [...(currentAdminBranches || list)]
+        .filter(b => isRealBranch(b.name || b.branch))
+        .sort((a, b) => (Number(b.oran) || 0) - (Number(a.oran) || 0))
+        .forEach((b, i) => { rankMap[b.name || b.branch] = i + 1; });
+      const maxOran = Math.max(...list.map(b => Number(b.oran) || 0), 0.01);
+
+      list.forEach(b => {
+        const name = b.name || b.branch;
+        const oranNum = Number(b.oran) || 0;
+        const rank = rankMap[name] || 0;
+        const barWidth = Math.min(100, (oranNum / maxOran) * 100);
+
+        let rankCls = "bg-slate-100 text-slate-600 border-slate-200";
+        let medal = "";
+        if (rank === 1) { rankCls = "bg-gradient-to-br from-amber-300 to-yellow-500 text-amber-950 border-amber-400 shadow-md shadow-amber-200"; medal = "🥇"; }
+        else if (rank === 2) { rankCls = "bg-gradient-to-br from-slate-200 to-slate-400 text-slate-900 border-slate-400 shadow-md shadow-slate-200"; medal = "🥈"; }
+        else if (rank === 3) { rankCls = "bg-gradient-to-br from-orange-300 to-amber-700 text-white border-orange-400 shadow-md shadow-orange-200"; medal = "🥉"; }
+
+        let statusLabel = "Geride", statusCls = "bg-rose-50 text-rose-700 border-rose-200";
+        if (rank && rank <= 3) { statusLabel = "Lider Grup"; statusCls = "bg-emerald-50 text-emerald-700 border-emerald-200"; }
+        else if (rank && rank <= 8) { statusLabel = "Orta Grup"; statusCls = "bg-amber-50 text-amber-700 border-amber-200"; }
+
+        const lastLoginTime = getBranchLastLoginTime(name);
+        const loginBadge = lastLoginTime
+          ? `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60"><i class="fa-regular fa-clock text-[11px] text-blue-500"></i><span>${lastLoginTime}</span></span>`
+          : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50">Henüz Girmedi</span>`;
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100" + (rank === 1 ? " bg-amber-50/40" : "");
+        tr.innerHTML = `
+          <td class="px-4 sm:px-6 py-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-2xl border flex items-center justify-center font-black text-sm flex-shrink-0 ${rankCls}">${rank || "-"}</div>
+              <button onclick="openBranchHistoryModal('${name}')" class="font-bold text-slate-900 hover:text-blue-600 transition flex items-center space-x-2 text-left group">
+                <span class="text-sm sm:text-base group-hover:underline">${name}</span>
+                ${medal ? `<span class="text-base">${medal}</span>` : ""}
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 group-hover:text-blue-600 transition"></i>
+              </button>
+            </div>
+          </td>
+          <td class="px-4 sm:px-6 py-4">
+            <div class="flex flex-col items-center space-y-1.5">
+              <span class="font-black text-slate-900 text-base sm:text-lg">%${formatPercent(oranNum)}</span>
+              <div class="w-28 sm:w-36 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-gradient-to-r from-rose-500 to-red-600" style="width:${barWidth}%"></div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 sm:px-6 py-4 text-center cursor-pointer" onclick="openBranchHistoryModal('${name}')">${loginBadge}</td>
+          <td class="px-4 sm:px-6 py-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-xl text-[11px] font-extrabold border ${statusCls}">${statusLabel}</span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (!totals || !totals.oran) {
+        const valid = list.filter(b => Number(b.oran) > 0);
+        if (valid.length > 0) {
+          totals = { name: "GENEL TOPLAM", oran: parseFloat((valid.reduce((a, b) => a + Number(b.oran), 0) / valid.length).toFixed(2)) };
         }
       }
 
       if (totals && totals.oran !== undefined && totals.oran !== null) {
         document.getElementById("totalOranBadge").textContent = formatPercent(totals.oran);
-
         const trFoot = document.createElement("tr");
         trFoot.className = "bg-slate-100/90 border-t-2 border-slate-300";
         trFoot.innerHTML = `
           <td class="px-4 sm:px-6 py-4 font-black text-slate-900 text-base">${totals.name || 'GENEL TOPLAM'}</td>
           <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-700 text-lg sm:text-xl">%${formatPercent(totals.oran)}</td>
           <td class="px-4 sm:px-6 py-4 text-center text-xs text-slate-500 font-bold">Tüm Şubeler İcmali</td>
-          <td class="px-4 sm:px-6 py-4 text-xs text-slate-500 font-bold">Genel Ortalama</td>
+          <td class="px-4 sm:px-6 py-4 text-xs text-slate-500 font-bold">${list.length} Mağaza</td>
         `;
         tfoot.appendChild(trFoot);
       }
