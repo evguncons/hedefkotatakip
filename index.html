@@ -1,941 +1,1913 @@
-/**
- * HEDEF AVM - ŞUBE KOTA VE NET PEŞİNAT TAKİP SİSTEMİ
- * Google Apps Script Backend (Code.gs)
- */
-
-// Google E-Tablonuzun ID'si
-const SPREADSHEET_ID = "1m9w7GNPNjC5unWbxkt2xYS9V_COkDDEjy8aNwsD5PkM";
-const DEFAULT_ADMIN_PASSWORD = "Hedefadmin2026.*";
-const SETTINGS_SHEET_NAME = "SİSTEM_AYARLAR";
-const LOGS_SHEET_NAME = "GİRİŞ_LOGLARI";
-
-
-/**
- * Gerçek şube adı olup olmadığını doğrular (GENEL TOPLAM, başlık, ayırıcı vb. eler)
- */
-const OFFICIAL_HEDEF_BRANCHES = [
-  "PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ",
-  "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"
-];
-
-function isRealBranch(item) {
-  if (!item) return false;
-  const name = typeof item === 'object' ? (item.name || item.branch || '') : item;
-  const str = name.toString().trim();
-  if (str.length < 2) return false;
-  if (/^[-_*#=~]+/.test(str)) return false;
-  const norm = str.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
-  if (norm.includes('toplam') || norm.includes('total')) return false;
-  if (norm.includes('sifre')) return false;
-  if (norm.includes('ayar') || norm.includes('admin')) return false;
-  if (norm.includes('seciniz')) return false;
-  return true;
-}
-
-function getCurrentMonthYearStr() {
-  const months = [
-    "OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN",
-    "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"
-  ];
-  const now = new Date();
-  return months[now.getMonth()] + " " + now.getFullYear();
-}
-
-function getFormattedDateTime(dateObj) {
-  const d = dateObj || new Date();
-  return Utilities.formatDate(d, "GMT+3", "dd.MM.yyyy HH:mm");
-}
-
-function getSheetSafe(ss, targetName) {
-  if (!ss || !targetName) return null;
-  const direct = ss.getSheetByName(targetName);
-  if (direct) return direct;
+<!DOCTYPE html>
+<html lang="tr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hedef AVM - Şube Kota & Net Peşinat Takip Sistemi</title>
   
-  const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
-  const targetNorm = norm(targetName);
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Free Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+  <!-- SheetJS (Excel & CSV okuyucu) -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   
-  const sheets = ss.getSheets();
-  for (let i = 0; i < sheets.length; i++) {
-    if (norm(sheets[i].getName()) === targetNorm) {
-      return sheets[i];
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            hedef: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+              800: '#9f1239',
+              900: '#881337',
+              dark: '#090d16',
+              surface: '#0f172a',
+              card: '#1e293b',
+            }
+          },
+          boxShadow: {
+            'glow-red': '0 0 25px -5px rgba(225, 29, 72, 0.35)',
+            'glow-emerald': '0 0 25px -5px rgba(16, 185, 129, 0.35)',
+            'glow-blue': '0 0 25px -5px rgba(37, 99, 235, 0.35)',
+            'soft': '0 10px 30px -5px rgba(0, 0, 0, 0.05)',
+            'card': '0 4px 20px -2px rgba(15, 23, 42, 0.06)',
+          }
+        }
+      }
     }
-  }
-  return null;
-}
-
-function getSpreadsheet() {
-  let ss = null;
-
-  if (SPREADSHEET_ID && SPREADSHEET_ID.trim() !== "") {
-    try {
-      ss = SpreadsheetApp.openById(SPREADSHEET_ID.trim());
-      return ss;
-    } catch (e) {
-      Logger.log("SPREADSHEET_ID ile açılamadı: " + e.message);
+  </script>
+  
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
     }
-  }
+    body {
+      background-color: #f8fafc;
+      color: #0f172a;
+      touch-action: manipulation;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    .shine-effect {
+      position: relative;
+      overflow: hidden;
+    }
+    .shine-effect::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 50%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: shine 2.5s infinite;
+    }
+    @keyframes shine {
+      0% { left: -100%; }
+      50% { left: 150%; }
+      100% { left: 150%; }
+    }
+    .pulse-dot {
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .view-transition {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+  </style>
+</head>
+<body class="min-h-full flex flex-col font-sans antialiased text-slate-800">
 
-  try {
-    ss = SpreadsheetApp.getActiveSpreadsheet();
-    if (ss) return ss;
-  } catch (e) {}
+  <!-- ================================================================= -->
+  <!-- 1. ÜST HEADER -->
+  <!-- ================================================================= -->
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="h-16 sm:h-20 flex items-center justify-between gap-3">
+        
+        <!-- Logo ve Başlık -->
+        <div class="flex items-center space-x-3 sm:space-x-4 min-w-0">
+          <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-rose-600 via-rose-500 to-red-500 flex items-center justify-center text-white shadow-glow-red flex-shrink-0">
+            <span class="font-extrabold text-lg sm:text-xl tracking-wider">H</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center space-x-2">
+              <h1 class="text-base sm:text-xl font-extrabold text-slate-900 tracking-tight truncate">HEDEF AVM</h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/60 hidden xs:inline-flex">PORTAL</span>
+            </div>
+            <p class="text-[11px] sm:text-xs text-slate-500 font-medium truncate flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-dot inline-block"></span>
+              <span>Şube Kota & Net Peşinat Takibi</span>
+            </p>
+          </div>
+        </div>
 
-  const scriptProperties = PropertiesService.getScriptProperties();
-  const savedId = scriptProperties.getProperty("ACTIVE_SPREADSHEET_ID");
-  if (savedId) {
-    try {
-      ss = SpreadsheetApp.openById(savedId);
-      if (ss) return ss;
-    } catch (e) {}
-  }
+        <!-- Sağ Taraf: Mod Değiştirici Segment (Şube / Yönetici) -->
+        <div class="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+          <div class="bg-slate-100/90 p-1 rounded-2xl flex items-center border border-slate-200/60">
+            <button id="navBranchBtn" onclick="switchMainView('branch')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-white text-rose-600 shadow-sm flex items-center space-x-1.5">
+              <i class="fa-solid fa-store text-xs"></i>
+              <span>Şube</span>
+            </button>
+            <button id="navAdminBtn" onclick="switchMainView('admin')" class="px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5">
+              <i class="fa-solid fa-shield-halved text-xs"></i>
+              <span>Yönetici</span>
+            </button>
+          </div>
+        </div>
 
-  try {
-    ss = SpreadsheetApp.create("Hedef AVM - Kota Takip Sistemi");
-    scriptProperties.setProperty("ACTIVE_SPREADSHEET_ID", ss.getId());
-    setupInitialSheets(ss);
-    return ss;
-  } catch (e) {
-    throw new Error("E-Tablo oluşturulamadı veya açılamadı: " + e.message);
-  }
-}
+      </div>
+    </div>
+  </header>
 
-function createJsonResponse(data) {
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
+  <!-- ================================================================= -->
+  <!-- 2. ANA İÇERİK ALANI -->
+  <!-- ================================================================= -->
+  <main class="flex-grow max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8">
 
-function doGet(e) {
-  try {
-    const params = e ? e.parameter || {} : {};
-    const action = params.action || "ping";
-    const ss = getSpreadsheet();
-    ensureSystemSheets(ss);
+    <!-- ================================================================= -->
+    <!-- BÖLÜM 1: ŞUBE GİRİŞİ & DASHBOARD -->
+    <!-- ================================================================= -->
+    <div id="branchSection" class="view-transition">
+      
+      <!-- 1.1 Şube Giriş Formu -->
+      <div id="branchLoginForm" class="max-w-md mx-auto my-4 sm:my-8">
+        <div class="bg-white rounded-3xl shadow-card border border-slate-100 p-6 sm:p-10 relative overflow-hidden">
+          
+          <div class="absolute -right-10 -top-10 w-32 h-32 bg-rose-50 rounded-full blur-2xl pointer-events-none"></div>
 
-    if (action === "ping" || action === "info") {
-      return createJsonResponse({ 
-        success: true, 
-        message: "Hedef AVM Kota Takip API Aktif", 
-        currentMonth: getCurrentMonthYearStr(),
-        timestamp: getFormattedDateTime(),
-        spreadsheetId: ss.getId(),
-        spreadsheetName: ss.getName(),
-        spreadsheetUrl: ss.getUrl(),
-        sheetNames: ss.getSheets().map(s => s.getName())
-      });
+          <div class="text-center mb-6 sm:mb-8 relative">
+            <div class="w-16 h-16 bg-rose-50 border border-rose-100 text-rose-600 rounded-3xl mx-auto flex items-center justify-center text-2xl mb-4 shadow-sm">
+              <i class="fa-solid fa-store"></i>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Şube Girişi</h2>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">Kendi şubenizin gerçekleşme oranını görün</p>
+          </div>
+
+          <form id="branchAuthForm" onsubmit="handleBranchLogin(event)" class="space-y-4 sm:space-y-5 relative">
+            
+            <!-- Dönem Seçimi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Dönem (Ay)</label>
+              <div class="relative">
+                <select id="branchMonthSelect" class="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition appearance-none cursor-pointer">
+                  <!-- JS ile dolar -->
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                  <i class="fa-solid fa-calendar-days text-xs"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Şube Adı Seçimi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Şube Adı</label>
+              <div class="relative">
+                <select id="branchNameSelect" required class="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition appearance-none cursor-pointer">
+                  <option value="" disabled selected>Şubenizi Seçiniz...</option>
+                  <option value="PAŞABAHÇE">PAŞABAHÇE</option>
+                  <option value="KAVACIK">KAVACIK</option>
+                  <option value="YENİDOĞAN">YENİDOĞAN</option>
+                  <option value="ÇEKMEKÖY">ÇEKMEKÖY</option>
+                  <option value="SULTANBEYLİ">SULTANBEYLİ</option>
+                  <option value="KÖRFEZ">KÖRFEZ</option>
+                  <option value="İZMİT">İZMİT</option>
+                  <option value="DERİNCE">DERİNCE</option>
+                  <option value="GÖLCÜK">GÖLCÜK</option>
+                  <option value="İNEGÖL">İNEGÖL</option>
+                  <option value="ÇAYIROVA">ÇAYIROVA</option>
+                  <option value="GEBZE">GEBZE</option>
+                  <option value="DÜZCE">DÜZCE</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                  <i class="fa-solid fa-chevron-down text-xs"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Şube Şifresi -->
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Şube Şifresi</label>
+              <div class="relative">
+                <input type="password" id="branchPasswordInput" required placeholder="••••••••" class="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition">
+                <button type="button" onclick="togglePasswordVisibility('branchPasswordInput', 'branchEyeIcon')" class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-slate-600 transition">
+                  <i id="branchEyeIcon" class="fa-solid fa-eye text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Giriş Butonu -->
+            <button type="submit" id="branchSubmitBtn" class="w-full bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 active:scale-[0.99] text-white font-bold py-3.5 sm:py-4 px-6 rounded-2xl shadow-glow-red transition-all duration-200 flex items-center justify-center space-x-2 text-sm mt-3">
+              <span id="branchBtnText">Oranımı Gör</span>
+              <i id="branchBtnIcon" class="fa-solid fa-arrow-right-long text-xs"></i>
+              <div id="branchSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </button>
+          </form>
+
+        </div>
+      </div>
+
+      <!-- 1.2 Şube Canlı Gösterge Paneli -->
+      <div id="branchDashboard" class="hidden max-w-2xl mx-auto space-y-4 sm:space-y-6">
+        
+        <!-- Üst Başlık & Çıkış Kartı -->
+        <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3.5 sm:space-x-4">
+            <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-rose-50 to-rose-100 border border-rose-200/50 text-rose-600 flex items-center justify-center text-xl sm:text-2xl font-bold flex-shrink-0">
+              <i class="fa-solid fa-shop"></i>
+            </div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-[10px] sm:text-xs font-extrabold uppercase tracking-wider px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-lg" id="dashMonthBadge">KASIM 2026</span>
+                <span class="inline-flex items-center space-x-1 text-[10px] sm:text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-md">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                  <span>Canlı Veri</span>
+                </span>
+              </div>
+              <h2 id="dashBranchTitle" class="text-xl sm:text-2xl font-black text-slate-900 mt-1 tracking-tight">PAŞABAHÇE ŞUBESİ</h2>
+            </div>
+          </div>
+
+          <!-- Aksiyon Butonları -->
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <button onclick="refreshBranchData()" title="Yenile" class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              <span>Yenile</span>
+            </button>
+            <button onclick="logoutBranch()" class="flex-1 sm:flex-initial px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+              <span>Çıkış</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SADECE GERÇEKLEŞME ORANI EKRANI -->
+        <div class="bg-white rounded-3xl p-6 sm:p-10 shadow-card border border-slate-100 text-center relative overflow-hidden">
+          <div class="max-w-md mx-auto space-y-6">
+            
+            <div class="inline-flex items-center space-x-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-xs font-bold border border-rose-200/50">
+              <i class="fa-solid fa-chart-pie text-xs"></i>
+              <span>Kota Gerçekleşme Performansı</span>
+            </div>
+
+            <!-- Devasa Odak Oran Göstergesi -->
+            <div class="bg-gradient-to-br from-rose-600 via-rose-600 to-red-700 text-white rounded-3xl p-8 sm:p-10 shadow-glow-red relative overflow-hidden">
+              <div class="absolute -right-8 -bottom-8 w-36 h-36 bg-white/10 rounded-full blur-sm pointer-events-none"></div>
+              
+              <span class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-rose-100 block mb-2">GERÇEKLEŞME ORANI</span>
+              
+              <div class="flex items-baseline justify-center space-x-1.5 my-2">
+                <span class="text-2xl sm:text-3xl font-bold text-rose-200">%</span>
+                <span id="dashOranVal" class="text-5xl sm:text-6xl font-black tracking-tight">0,00</span>
+              </div>
+
+              <!-- Şube Başarı Sıralaması Rozeti -->
+              <div id="dashRankBadge" class="mt-3.5 inline-flex items-center space-x-2 px-4 py-2 bg-white/20 backdrop-blur-md rounded-2xl border border-white/30 text-xs sm:text-sm font-extrabold shadow-sm">
+                <span id="dashRankIcon" class="text-base sm:text-lg">🏆</span>
+                <span id="dashRankText">13 mağaza arasında 1. sıradasınız</span>
+              </div>
+              
+              <p class="text-xs text-rose-100/90 font-medium mt-3">Kotanın yüzde kaçının tamamlandığını gösterir</p>
+            </div>
+
+            <!-- İlerleme Çubuğu -->
+            <div class="space-y-2 pt-2">
+              <div class="flex justify-between items-center text-xs sm:text-sm font-bold text-slate-700 px-1">
+                <span>Tamamlanma Durumu</span>
+                <span id="dashProgressLabel" class="text-rose-600 font-extrabold">%0,00 tamamlandı</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-2xl h-4 sm:h-5 p-1 overflow-hidden border border-slate-200/50">
+                <div id="dashProgressBar" class="h-full bg-gradient-to-r from-rose-500 via-rose-600 to-red-600 rounded-xl transition-all duration-1000 shine-effect" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <!-- Giriş Zamanı Rozeti -->
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold px-1">
+              <span class="flex items-center space-x-1.5">
+                <i class="fa-solid fa-clock-rotate-left text-slate-400"></i>
+                <span>Giriş Zamanı: <strong id="dashLastUpdated" class="text-slate-700">Bugün</strong></span>
+              </span>
+              <span class="flex items-center space-x-1 text-emerald-600">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Kaydedildi</span>
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- BÖLÜM 2: YÖNETİCİ PANELİ (ADMİN) -->
+    <!-- ================================================================= -->
+    <div id="adminSection" class="hidden view-transition">
+      
+      <!-- 2.1 Yönetici Giriş Formu -->
+      <div id="adminLoginForm" class="max-w-md mx-auto my-4 sm:my-8">
+        <div class="bg-white rounded-3xl shadow-card border border-slate-100 p-6 sm:p-10 relative overflow-hidden">
+          
+          <div class="text-center mb-6 sm:mb-8">
+            <div class="w-16 h-16 bg-slate-900 text-white rounded-3xl mx-auto flex items-center justify-center text-2xl mb-4 shadow-lg shadow-slate-900/20">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Yönetici Girişi</h2>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">Excel yükleme, oran takibi ve giriş logları</p>
+          </div>
+
+          <form id="adminAuthForm" onsubmit="handleAdminLogin(event)" class="space-y-4 sm:space-y-5">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Yönetici Şifresi</label>
+              <div class="relative">
+                <input type="password" id="adminPasswordInput" required placeholder="••••••••" class="w-full bg-slate-50 hover:bg-slate-100/70 border border-slate-200 text-slate-800 rounded-2xl px-4 py-3.5 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-800 focus:bg-white transition">
+                <button type="button" onclick="togglePasswordVisibility('adminPasswordInput', 'adminEyeIcon')" class="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-slate-600 transition">
+                  <i id="adminEyeIcon" class="fa-solid fa-eye text-sm"></i>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" id="adminSubmitBtn" class="w-full bg-slate-900 hover:bg-slate-800 active:scale-[0.99] text-white font-bold py-3.5 sm:py-4 px-6 rounded-2xl shadow-lg shadow-slate-900/10 transition-all duration-200 flex items-center justify-center space-x-2 text-sm">
+              <span id="adminBtnText">Yönetici Paneline Gir</span>
+              <i id="adminBtnIcon" class="fa-solid fa-lock text-xs"></i>
+              <div id="adminSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            </button>
+          </form>
+
+        </div>
+      </div>
+
+      <!-- 2.2 Yönetici Kontrol Dashboard'u -->
+      <div id="adminDashboard" class="hidden space-y-4 sm:space-y-6">
+        
+        <!-- Üst Bar: Dönem Seçimi & Çıkış -->
+        <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div class="flex items-center space-x-3.5 sm:space-x-4">
+            <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-bold flex-shrink-0">
+              <i class="fa-solid fa-chart-pie"></i>
+            </div>
+            <div>
+              <h2 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Yönetim & İcmal Paneli</h2>
+              <p class="text-xs text-slate-500 font-medium">Şube oranları, giriş saatleri ve Excel aktarımı</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
+            <div class="flex items-center space-x-2 bg-slate-100/80 border border-slate-200 rounded-2xl px-3.5 py-2 flex-grow sm:flex-grow-0">
+              <span class="text-xs font-bold text-slate-500 whitespace-nowrap">Dönem:</span>
+              <select id="adminMonthSelect" onchange="loadAdminDataForMonth(this.value)" class="bg-transparent text-xs font-extrabold text-slate-800 focus:outline-none cursor-pointer pr-2">
+                <!-- JS ile dolar -->
+              </select>
+            </div>
+
+            <button onclick="logoutAdmin()" class="px-4 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 rounded-2xl text-xs font-bold transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>Çıkış</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- YÖNETİCİ SEKMELERİ -->
+        <div class="overflow-x-auto custom-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+          <div class="flex border-b border-slate-200/80 space-x-1 sm:space-x-2 min-w-max">
+            <button onclick="switchAdminTab('table')" id="tabBtnTable" class="px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-rose-600 text-rose-600 transition flex items-center space-x-2">
+              <i class="fa-solid fa-table"></i>
+              <span>Tüm Şubeler İcmal Tablosu</span>
+            </button>
+            <button onclick="switchAdminTab('logs')" id="tabBtnLogs" class="px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2">
+              <i class="fa-solid fa-clock-rotate-left text-blue-600"></i>
+              <span>Şube Giriş Geçmişi (Loglar)</span>
+            </button>
+            <button onclick="switchAdminTab('upload')" id="tabBtnUpload" class="px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2">
+              <i class="fa-solid fa-file-excel text-emerald-600"></i>
+              <span>Excel / CSV Yükle (Sheets'e Aktar)</span>
+            </button>
+            <button onclick="switchAdminTab('passwords')" id="tabBtnPasswords" class="px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2">
+              <i class="fa-solid fa-key text-amber-500"></i>
+              <span>Şube Şifreleri</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SEKME 1: TÜM ŞUBELER TABLOSU -->
+        <div id="adminTabTable" class="space-y-4 sm:space-y-6">
+          
+          <!-- Üst Özet: Sadece Genel Gerçekleşme Oranı -->
+          <div class="max-w-md mx-auto">
+            <div class="bg-gradient-to-br from-rose-600 via-rose-600 to-red-700 text-white rounded-3xl p-6 sm:p-7 shadow-glow-red text-center relative overflow-hidden">
+              <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-sm pointer-events-none"></div>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-rose-100 block mb-1">GENEL GERÇEKLEŞME ORANI</span>
+              <div class="flex items-baseline justify-center space-x-1 my-1">
+                <span class="text-2xl font-bold text-rose-200">%</span>
+                <span id="totalOranBadge" class="text-4xl sm:text-5xl font-black tracking-tight">0,00</span>
+              </div>
+              <p class="text-xs text-rose-100/90 font-medium mt-1">Tüm Şubeler Toplam Oranı</p>
+            </div>
+          </div>
+
+          <!-- Tablo Konteyneri & Araç Çubuğu -->
+          <div class="bg-white rounded-3xl shadow-card border border-slate-100 overflow-hidden">
+            
+            <!-- Araç Çubuğu -->
+            <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div class="relative flex-grow max-w-xs">
+                <input type="text" id="branchSearchInput" oninput="filterBranchTable(this.value)" placeholder="Şube ara..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-2">
+                <button onclick="sortBranchesByOran()" id="btnSortOran" class="px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 flex-1 sm:flex-initial justify-center">
+                  <i class="fa-solid fa-arrow-down-wide-short text-xs"></i>
+                  <span>Orana Göre Sırala</span>
+                </button>
+                <button onclick="exportTableToExcel()" class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 flex-1 sm:flex-initial justify-center">
+                  <i class="fa-solid fa-file-excel text-xs"></i>
+                  <span>Excel İndir</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tablo (Şube Adına Tıklayınca Pop-up Açılır!) -->
+            <div class="overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs sm:text-sm" id="mainAdminTable">
+                <thead>
+                  <tr class="bg-slate-100/80 text-slate-600 uppercase font-bold text-[11px] border-b border-slate-200">
+                    <th class="px-4 sm:px-6 py-3.5">Mağaza Adı (Detay İçin Tıklayın)</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-center">Gerçekleşme Oranı</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-center">Son Giriş Zamanı</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-left w-36 sm:w-48">Performans Durumu</th>
+                  </tr>
+                </thead>
+                <tbody id="adminTableBody" class="divide-y divide-slate-100 font-medium">
+                  <!-- JS ile doldurulacak -->
+                </tbody>
+                <tfoot id="adminTableFoot" class="bg-slate-50 font-black border-t-2 border-slate-300">
+                  <!-- Genel Toplam Satırı JS ile eklenecek -->
+                </tfoot>
+              </table>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- SEKME 2: GİRİŞ GEÇMİŞİ & LOGLAR -->
+        <div id="adminTabLogs" class="hidden space-y-4 sm:space-y-6">
+          
+          <div class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+              </div>
+              <div>
+                <h3 class="text-base sm:text-lg font-black text-slate-900 tracking-tight">Şube Giriş Geçmişi & Log Takibi</h3>
+                <p class="text-xs text-slate-500 font-medium">Şube kartına tıklayarak o şubenin tüm geçmiş girişlerini inceleyebilirsiniz.</p>
+              </div>
+            </div>
+
+            <button onclick="refreshLoginLogs()" id="btnRefreshLogs" class="px-4 py-2.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 rounded-xl text-xs font-bold transition flex items-center space-x-2">
+              <i class="fa-solid fa-arrows-rotate text-xs"></i>
+              <span>Logları Yenile</span>
+            </button>
+          </div>
+
+          <!-- Şube Bazında Son Giriş Özeti (Tıklanabilir Kartlar) -->
+          <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100 space-y-4">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs sm:text-sm font-extrabold uppercase tracking-wider text-slate-700">Şubelerin En Son Giriş Zamanları</h4>
+              <span class="text-[11px] text-slate-400 font-medium">Detay için şubeye tıklayın</span>
+            </div>
+            <div id="branchLastLoginGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <!-- JS ile doldurulacak -->
+            </div>
+          </div>
+
+          <!-- Canlı Detaylı Giriş Akışı Tablosu -->
+          <div class="bg-white rounded-3xl shadow-card border border-slate-100 overflow-hidden">
+            <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div>
+                <h4 class="text-sm font-extrabold text-slate-900">Kronolojik Giriş Akışı (Son Kayıtlar)</h4>
+                <p class="text-xs text-slate-400">En son girişler en üstte listelenir</p>
+              </div>
+
+              <div class="relative max-w-xs">
+                <input type="text" id="logSearchInput" oninput="filterLogsTable(this.value)" placeholder="Şube adına göre ara..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                  <i class="fa-solid fa-magnifying-glass"></i>
+                </div>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar max-h-96">
+              <table class="w-full text-left text-xs sm:text-sm" id="mainLogsTable">
+                <thead class="bg-slate-100/80 sticky top-0 font-bold text-[11px] text-slate-600 uppercase border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 sm:px-6 py-3.5">Giriş Tarihi & Saati</th>
+                    <th class="px-4 sm:px-6 py-3.5">Giriş Yapan Şube</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-center">Görüntülenen Dönem</th>
+                    <th class="px-4 sm:px-6 py-3.5 text-center">Durum</th>
+                  </tr>
+                </thead>
+                <tbody id="logsTableBody" class="divide-y divide-slate-100 font-medium">
+                  <!-- JS ile doldurulacak -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- SEKME 3: EXCEL / CSV YÜKLEME -->
+        <div id="adminTabUpload" class="hidden space-y-4 sm:space-y-6">
+          <div class="bg-white rounded-3xl p-5 sm:p-8 shadow-card border border-slate-100 space-y-5 sm:space-y-6 max-w-3xl mx-auto">
+            <div>
+              <h3 class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">Excel Dosyası Yükle & Sayfaya Aktar</h3>
+              <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                Yüklediğiniz Excel tablosundaki veriler doğrudan güncel ayın sayfasına otomatik işlenir ve tüm şubelere canlı yayınlanır.
+              </p>
+            </div>
+
+            <!-- Sürükle Bırak / Dosya Seçme Alanı -->
+            <div id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)" class="border-2 border-dashed border-slate-300 hover:border-rose-500 rounded-3xl p-6 sm:p-10 text-center transition cursor-pointer bg-slate-50 hover:bg-rose-50/20 active:scale-[0.99]">
+              <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" onchange="handleFileSelect(event)" class="hidden">
+              <div onclick="document.getElementById('excelFileInput').click()" class="space-y-3">
+                <div class="w-14 h-14 sm:w-16 sm:h-16 bg-emerald-100 text-emerald-600 rounded-3xl mx-auto flex items-center justify-center text-2xl sm:text-3xl shadow-sm">
+                  <i class="fa-solid fa-file-excel"></i>
+                </div>
+                <div>
+                  <p class="text-sm sm:text-base font-extrabold text-slate-800">Excel veya CSV Dosyasını Seçin</p>
+                  <p class="text-xs text-slate-400 mt-1">Sürükleyip bırakabilir veya <span class="text-rose-600 underline font-bold">tıklayarak seçebilirsiniz</span></p>
+                </div>
+                <div class="inline-block px-3 py-1 bg-slate-200/60 text-slate-600 text-[11px] rounded-lg font-medium">
+                  Gerekli Sütunlar: <strong>Mağaza Adı, kota, Net Peşinat Toplam</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Seçilen Dosya ve Önizleme -->
+            <div id="uploadPreviewSection" class="hidden space-y-4">
+              <div class="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                <div class="flex items-center space-x-3 min-w-0">
+                  <i class="fa-solid fa-file-spreadsheet text-emerald-600 text-2xl flex-shrink-0"></i>
+                  <div class="min-w-0">
+                    <h5 id="previewFileName" class="text-xs sm:text-sm font-bold text-slate-800 truncate">dosya.xlsx</h5>
+                    <p id="previewRowCount" class="text-[11px] text-slate-500">13 şube satırı tespit edildi</p>
+                  </div>
+                </div>
+                <button onclick="clearSelectedFile()" class="text-xs font-bold text-rose-600 hover:underline flex-shrink-0 ml-2">Değiştir</button>
+              </div>
+
+              <!-- Önizleme Tablosu -->
+              <div class="max-h-56 overflow-y-auto border border-slate-200 rounded-2xl custom-scrollbar">
+                <table class="w-full text-left text-xs">
+                  <thead class="bg-slate-100 sticky top-0 font-bold text-slate-700">
+                    <tr>
+                      <th class="p-2.5">Mağaza</th>
+                      <th class="p-2.5 text-center">Hesaplanan Oran</th>
+                    </tr>
+                  </thead>
+                  <tbody id="previewTableBody" class="divide-y divide-slate-100">
+                    <!-- Önizleme satırları -->
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Gönder Butonu -->
+              <button onclick="submitDataToGoogleSheets()" id="btnSendToSheets" class="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold py-3.5 sm:py-4 px-6 rounded-2xl shadow-glow-emerald transition flex items-center justify-center space-x-2 text-xs sm:text-sm">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span id="btnSendText">Google Sheets'e Yükle ve Şubelere Yayınla</span>
+                <div id="uploadSpinner" class="hidden w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- SEKME 4: ŞUBE ŞİFRELERİ YÖNETİMİ -->
+        <div id="adminTabPasswords" class="hidden space-y-4 sm:space-y-6 max-w-3xl mx-auto">
+          <div class="bg-white rounded-3xl p-5 sm:p-8 shadow-card border border-slate-100 space-y-6">
+            <div>
+              <h3 class="text-base sm:text-lg font-black text-slate-900">Şube Giriş Şifreleri</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Şifreyi kutucuğa yazıp yanındaki onay (✔) butonuna basarak Google Sheets'e anında kaydedebilirsiniz.</p>
+            </div>
+
+            <!-- Şifre Arama -->
+            <div class="relative">
+              <input type="text" id="pwdSearchInput" oninput="filterPasswordList(this.value)" placeholder="Şube adı ile ara..." class="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                <i class="fa-solid fa-magnifying-glass"></i>
+              </div>
+            </div>
+
+            <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto custom-scrollbar pr-1" id="branchPasswordList">
+              <!-- JS ile doldurulacak -->
+            </div>
+
+            <!-- Yönetici Şifresini Değiştirme -->
+            <div class="pt-5 border-t border-slate-200/80">
+              <h4 class="text-xs sm:text-sm font-bold text-slate-800 mb-2.5">Yönetici Giriş Şifresini Değiştir</h4>
+              <div class="flex flex-col sm:flex-row gap-2.5">
+                <input type="password" id="newAdminPassword" placeholder="Yeni Yönetici Şifresi" class="flex-grow bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-bold focus:outline-none focus:ring-2 focus:ring-slate-800">
+                <button onclick="changeAdminPasswordAction()" class="bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold rounded-xl px-5 py-2.5 transition">
+                  Şifreyi Güncelle
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================================================================= -->
+  <!-- 3. ŞUBEYE ÖZEL GİRİŞ GEÇMİŞİ POP-UP (MODAL) -->
+  <!-- ================================================================= -->
+  <div id="branchHistoryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-3 sm:p-4" onclick="handleModalBackdropClick(event)">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-5 animate-scale-up" onclick="event.stopPropagation()">
+      
+      <!-- Modal Başlık -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center space-x-3.5">
+          <div class="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold flex-shrink-0">
+            <i class="fa-solid fa-store"></i>
+          </div>
+          <div>
+            <h3 id="modalBranchTitle" class="text-lg sm:text-xl font-black text-slate-900 tracking-tight">DERİNCE ŞUBESİ</h3>
+            <p class="text-xs text-slate-400 font-medium">Giriş Geçmişi & Hareket Kayıtları</p>
+          </div>
+        </div>
+        <button onclick="closeBranchHistoryModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- İstatistik Rozetleri -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-blue-50/70 border border-blue-100 rounded-2xl p-3.5 text-center">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-blue-700 block">Toplam Giriş</span>
+          <p id="modalTotalLogCount" class="text-lg font-black text-blue-900 mt-0.5">0 Kez</p>
+        </div>
+        <div class="bg-emerald-50/70 border border-emerald-100 rounded-2xl p-3.5 text-center">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700 block">En Son Giriş</span>
+          <p id="modalLastLoginTime" class="text-sm font-black text-emerald-900 mt-1 truncate">Henüz Girmedi</p>
+        </div>
+      </div>
+
+      <!-- Şubeye Özel Giriş Tablosu -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between px-1">
+          <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Tüm Giriş Kayıtları</h4>
+          <span class="text-[11px] text-slate-400">En yeniden eskiye</span>
+        </div>
+        <div class="max-h-64 overflow-y-auto custom-scrollbar border border-slate-200/80 rounded-2xl">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-100/90 sticky top-0 font-bold text-slate-700 border-b border-slate-200">
+              <tr>
+                <th class="p-3">Tarih & Saat</th>
+                <th class="p-3 text-center">Dönem</th>
+                <th class="p-3 text-center">Durum</th>
+              </tr>
+            </thead>
+            <tbody id="modalBranchLogsBody" class="divide-y divide-slate-100 font-medium">
+              <!-- JS ile doldurulacak -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Kapat Butonu -->
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeBranchHistoryModal()" class="w-full sm:w-auto px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm">
+          Kapat
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TOAST BİLDİRİM BİLEŞENİ -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full px-4"></div>
+
+  <!-- ================================================================= -->
+  <!-- 4. JAVASCRIPT KODLARI -->
+  <!-- ================================================================= -->
+  <script>
+    function getDefaultCurrentMonth() {
+      const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+      const d = new Date();
+      return `${months[d.getMonth()]} ${d.getFullYear()}`;
     }
 
-    if (action === "getBranches") {
-      const branches = getUniqueBranches(ss);
-      return createJsonResponse({ success: true, branches: branches });
+    // Tarih ve Saati Temiz Türkçe Formata Çevirir (Tue Nov 03 2026 GMT+0300 karmaşasını önler!)
+    
+
+
+    function isRealBranch(item) {
+      if (!item) return false;
+      const name = typeof item === 'object' ? (item.name || item.branch || '') : item;
+      const str = name.toString().trim();
+      if (str.length < 2) return false;
+      if (/^[-_*#=~]+/.test(str)) return false;
+      const norm = str.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
+      if (norm.includes('toplam') || norm.includes('total')) return false;
+      if (norm.includes('sifre')) return false;
+      if (norm.includes('ayar') || norm.includes('admin')) return false;
+      if (norm.includes('seciniz')) return false;
+      return true;
     }
 
-    if (action === "getMonths") {
-      const months = getAvailableMonths(ss);
-      return createJsonResponse({ 
-        success: true, 
-        months: months, 
-        currentMonth: getCurrentMonthYearStr() 
-      });
-    }
+    function cleanTurkishDateTime(rawVal) {
+      if (!rawVal) return "Henüz giriş yapmadı";
+      let str = rawVal.toString().trim();
+      
+      // Zaten temiz Türkçe "03.11.2026 17:26" formatındaysa
+      if (str.match(/^\d{2}\.\d{2}\.\d{4}\s+\d{2}:\d{2}/)) {
+        return str.substring(0, 16);
+      }
 
-    if (action === "getBranchLogs" || action === "getLogs") {
-      const logsData = getBranchLoginLogs(ss);
-      return createJsonResponse({ 
-        success: true, 
-        logs: logsData.logs, 
-        lastLogins: logsData.lastLogins 
-      });
-    }
-
-    return createJsonResponse({ success: false, error: "Geçersiz GET aksiyonu: " + action });
-  } catch (err) {
-    return createJsonResponse({ success: false, error: err.toString() });
-  }
-}
-
-function doPost(e) {
-  try {
-    let payload = {};
-    if (e && e.postData && e.postData.contents) {
+      // Eğer GMT / Date string ise parse et
       try {
-        payload = JSON.parse(e.postData.contents);
-      } catch (parseErr) {
-        payload = e.parameter || {};
-      }
-    } else if (e && e.parameter) {
-      payload = e.parameter;
+        const d = new Date(str);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          return `${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+      } catch(e) {}
+
+      return str;
     }
 
-    const action = payload.action;
-    const ss = getSpreadsheet();
-    ensureSystemSheets(ss);
+    // Dönem Adını Temiz Türkçe Formata Çevirir (Sun Nov 01 2026... karmaşasını önler!)
+    function cleanTurkishMonth(rawVal) {
+      if (!rawVal) return getDefaultCurrentMonth();
+      let str = rawVal.toString().trim();
 
-    if (action === "ping" || action === "info") {
-      return createJsonResponse({ 
-        success: true, 
-        message: "Hedef AVM Kota Takip API Aktif", 
-        currentMonth: getCurrentMonthYearStr(),
-        timestamp: getFormattedDateTime(),
-        spreadsheetId: ss.getId(),
-        spreadsheetName: ss.getName(),
-        spreadsheetUrl: ss.getUrl(),
-        sheetNames: ss.getSheets().map(s => s.getName())
-      });
+      if (str.includes("GMT") || str.includes("Türkiye")) {
+        try {
+          const d = new Date(str);
+          if (!isNaN(d.getTime())) {
+            const months = ["OCAK", "ŞUBAT", "MART", "NİSAN", "MAYIS", "HAZİRAN", "TEMMUZ", "AĞUSTOS", "EYLÜL", "EKİM", "KASIM", "ARALIK"];
+            return `${months[d.getMonth()]} ${d.getFullYear()}`;
+          }
+        } catch(e) {}
+      }
+
+      return str;
     }
 
-    // Hem adminPassword hem password hem oldPassword parametrelerini destekle
-    const adminPass = (payload.adminPassword || payload.password || payload.oldPassword || "").toString().trim();
+    // Google Apps Script Web App Bağlantı Adresi
+    const API_URL = "https://script.google.com/macros/s/AKfycbwgob1veFjUG7lI7f4NB6FxO94dGepdH64CYiCJdZLdfaj_hFCj7fZQ8s1s0pJqA3eH/exec";
+    let currentAdminPassword = "";
+    let currentAdminMonth = getDefaultCurrentMonth();
+    let currentAdminBranches = [];
+    let currentAdminTotals = null;
+    let currentAdminLogs = [];
+    let currentAdminLastLogins = {};
+    let currentBranchSession = null;
+    let pendingUploadRows = [];
+    let isSortedAsc = false;
+    let allLoadedPasswords = [];
 
-    // 1. ŞUBE GİRİŞİ (SİSTEM_AYARLAR sayfasındaki şifreyi kontrol eder)
-    if (action === "branchLogin") {
-      const branchName = (payload.branchName || "").toString().trim();
-      const password = (payload.password || payload.branchPassword || "").toString().trim();
-      const month = (payload.month || getCurrentMonthYearStr()).toString().trim();
+    // Örnek Demo Verisi
+    const DEMO_OCTOBER_DATA = [
+      { branch: "PAŞABAHÇE", kota: 2012000, netPesinat: 35537, oran: 1.77 },
+      { branch: "KAVACIK", kota: 4616723, netPesinat: 143759, oran: 3.11 },
+      { branch: "YENİDOĞAN", kota: 4916405, netPesinat: 79274, oran: 1.61 },
+      { branch: "ÇEKMEKÖY", kota: 3322601, netPesinat: 62207, oran: 1.87 },
+      { branch: "SULTANBEYLİ", kota: 2366858, netPesinat: 22347, oran: 0.94 },
+      { branch: "KÖRFEZ", kota: 5732656, netPesinat: 226526, oran: 3.95 },
+      { branch: "İZMİT", kota: 3473792, netPesinat: 47776, oran: 1.38 },
+      { branch: "DERİNCE", kota: 3374798, netPesinat: 41562, oran: 1.23 },
+      { branch: "GÖLCÜK", kota: 6083635, netPesinat: 51285, oran: 0.84 },
+      { branch: "İNEGÖL", kota: 1961882, netPesinat: 27806, oran: 1.42 },
+      { branch: "ÇAYIROVA", kota: 1764794, netPesinat: 35897, oran: 2.03 },
+      { branch: "GEBZE", kota: 1233826, netPesinat: 27198, oran: 2.20 },
+      { branch: "DÜZCE", kota: 4139752, netPesinat: 79018, oran: 1.91 },
+    ];
 
-      if (!branchName || !password) {
-        return createJsonResponse({ success: false, error: "Şube adı ve şifre zorunludur." });
+    document.addEventListener("DOMContentLoaded", () => {
+      const currentMonth = getDefaultCurrentMonth();
+      
+      const bSelect = document.getElementById("branchMonthSelect");
+      bSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
+
+      const aSelect = document.getElementById("adminMonthSelect");
+      aSelect.innerHTML = `<option value="${currentMonth}">${currentMonth}</option>`;
+
+      fetchInitialBranchesAndMonths();
+    });
+
+    const OFFICIAL_HEDEF_BRANCHES = [
+      "PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ",
+      "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"
+    ];
+
+    async function fetchInitialBranchesAndMonths() {
+      // Sayfa açılır açılmaz resmi Hedef AVM şubelerini anında doldur
+      populateBranchDropdown(OFFICIAL_HEDEF_BRANCHES);
+
+      if (!API_URL) return;
+      try {
+        const res = await fetch(`${API_URL}?action=getBranches`);
+        const data = await res.json();
+        if (data && data.success) {
+          if (data.branches && data.branches.length > 0) {
+            populateBranchDropdown(data.branches);
+          }
+          if (data.months && data.months.length > 0) {
+            updateMonthDropdowns(data.months, data.activeMonth);
+          }
+        }
+      } catch (err) {
+        console.warn("API şube listesi alınamadı, resmi Hedef AVM şubeleri korunuyor:", err);
       }
+    }
 
-      const isValid = verifyBranchPassword(ss, branchName, password);
-      if (!isValid) {
-        return createJsonResponse({ success: false, error: "Girdiğiniz şube şifresi hatalıdır." });
-      }
+    function populateBranchDropdown(list) {
+      const select = document.getElementById("branchNameSelect");
+      if (!select) return;
 
-      const branchData = getBranchDataForMonth(ss, branchName, month);
-      if (!branchData) {
-        return createJsonResponse({ 
-          success: false, 
-          error: month + " dönemi için henüz '" + branchName + "' şubesine ait veri yüklenmemiştir." 
+      const currentVal = select.value;
+      select.innerHTML = '<option value="" disabled selected>Şubenizi Seçiniz...</option>';
+
+      let validBranches = [];
+      if (list && Array.isArray(list)) {
+        list.forEach(b => {
+          const bName = typeof b === 'object' && b ? (b.name || b.branch || '') : b;
+          if (isRealBranch(bName)) {
+            const str = bName.toString().trim();
+            if (!validBranches.includes(str)) {
+              validBranches.push(str);
+            }
+          }
         });
       }
 
-      // Şubenin oranına göre 13 mağaza arasındaki sırasını hesapla
-      const monthData = getAllBranchesDataForMonth(ss, month);
-      const allBranches = monthData.branches || [];
+      // 13 Resmi Hedef AVM mağazasını her zaman garanti et
+      OFFICIAL_HEDEF_BRANCHES.forEach(ob => {
+        if (!validBranches.includes(ob)) {
+          validBranches.push(ob);
+        }
+      });
+
+      validBranches.sort((a, b) => a.localeCompare(b, 'tr')).forEach(b => {
+        const opt = document.createElement("option");
+        opt.value = b;
+        opt.textContent = b;
+        select.appendChild(opt);
+      });
+
+      if (currentVal && validBranches.includes(currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
+    function updateMonthDropdowns(months, activeMonth) {
+      const bSelect = document.getElementById("branchMonthSelect");
+      const aSelect = document.getElementById("adminMonthSelect");
+      bSelect.innerHTML = "";
+      aSelect.innerHTML = "";
+
+      const validMonths = (months || []).filter(m => {
+        const low = m.toLowerCase();
+        return !low.startsWith("sayfa") && !low.startsWith("sheet") && m !== "SİSTEM_AYARLAR" && m !== "GİRİŞ_LOGLARI";
+      });
+
+      if (validMonths.length === 0) {
+        validMonths.push(getDefaultCurrentMonth());
+      }
+
+      validMonths.forEach(m => {
+        const cleanM = cleanTurkishMonth(m);
+        const opt1 = document.createElement("option");
+        opt1.value = cleanM;
+        opt1.textContent = cleanM;
+        if (cleanM === activeMonth || (!activeMonth && cleanM === validMonths[0])) opt1.selected = true;
+        bSelect.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = cleanM;
+        opt2.textContent = cleanM;
+        if (cleanM === activeMonth || (!activeMonth && cleanM === validMonths[0])) opt2.selected = true;
+        aSelect.appendChild(opt2);
+      });
+
+      currentAdminMonth = (activeMonth && !activeMonth.toLowerCase().startsWith("sayfa")) ? activeMonth : validMonths[0];
+    }
+
+    function switchMainView(view) {
+      const branchSection = document.getElementById("branchSection");
+      const adminSection = document.getElementById("adminSection");
+      const navBranchBtn = document.getElementById("navBranchBtn");
+      const navAdminBtn = document.getElementById("navAdminBtn");
+
+      if (view === "branch") {
+        branchSection.classList.remove("hidden");
+        adminSection.classList.add("hidden");
+
+        navBranchBtn.className = "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-white text-rose-600 shadow-sm flex items-center space-x-1.5";
+        navAdminBtn.className = "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5";
+      } else {
+        branchSection.classList.add("hidden");
+        adminSection.classList.remove("hidden");
+
+        navAdminBtn.className = "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 bg-white text-slate-900 shadow-sm flex items-center space-x-1.5";
+        navBranchBtn.className = "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 text-slate-600 hover:text-slate-900 flex items-center space-x-1.5";
+      }
+    }
+
+    // ==========================================
+    // ŞUBE GİRİŞİ (LOGLANIR & SADECE ORAN DÖNER)
+    // ==========================================
+    async function handleBranchLogin(e) {
+      e.preventDefault();
+      const branchName = document.getElementById("branchNameSelect").value;
+      const password = document.getElementById("branchPasswordInput").value.trim();
+      const month = document.getElementById("branchMonthSelect").value;
+
+      if (!branchName) {
+        showToast("Lütfen şubenizi seçiniz", "error");
+        return;
+      }
+      if (!password) {
+        showToast("Lütfen şube şifrenizi giriniz", "error");
+        return;
+      }
+
+      setBranchLoading(true);
+
+      try {
+        let result = null;
+
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "branchLogin",
+              branchName: branchName,
+              password: password,
+              month: month
+            })
+          });
+          result = await res.json();
+        } else {
+          await new Promise(r => setTimeout(r, 500));
+          const sortedDemo = [...DEMO_OCTOBER_DATA].sort((a, b) => b.oran - a.oran);
+          const foundIndex = sortedDemo.findIndex(d => d.branch.toLocaleUpperCase('tr-TR') === branchName.toLocaleUpperCase('tr-TR'));
+          if (foundIndex !== -1) {
+            const found = sortedDemo[foundIndex];
+            result = {
+              success: true,
+              branch: found.branch,
+              month: month,
+              oran: found.oran,
+              rank: foundIndex + 1,
+              totalBranches: sortedDemo.length,
+              lastUpdated: cleanTurkishDateTime(new Date())
+            };
+          } else {
+            result = { success: false, error: "Şube bu dönem listesinde bulunamadı." };
+          }
+        }
+
+        if (result && result.success) {
+          currentBranchSession = { branchName, password, month };
+          showBranchDashboard(result);
+          showToast(`Hoş geldiniz, ${result.branch}`, "success");
+        } else {
+          showToast(result.error || "Giriş başarısız! Şifrenizi kontrol ediniz.", "error");
+        }
+
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        setBranchLoading(false);
+      }
+    }
+
+    function refreshBranchData() {
+      if (currentBranchSession) {
+        document.getElementById("branchNameSelect").value = currentBranchSession.branchName;
+        document.getElementById("branchPasswordInput").value = currentBranchSession.password;
+        document.getElementById("branchMonthSelect").value = currentBranchSession.month;
+        handleBranchLogin(new Event('submit'));
+      }
+    }
+
+    function showBranchDashboard(data) {
+      document.getElementById("branchLoginForm").classList.add("hidden");
+      document.getElementById("branchDashboard").classList.remove("hidden");
+
+      document.getElementById("dashBranchTitle").textContent = `${data.branch} ŞUBESİ`;
+      document.getElementById("dashMonthBadge").textContent = cleanTurkishMonth(data.month);
+      
+      document.getElementById("dashOranVal").textContent = formatPercent(data.oran);
+      document.getElementById("dashLastUpdated").textContent = cleanTurkishDateTime(data.lastUpdated);
+
+      // 13 Mağaza Arasındaki Sıralama
+      const rankBadge = document.getElementById("dashRankBadge");
+      if (data.rank && data.rank > 0) {
+        const ordinals = [
+          "", "birinci", "ikinci", "üçüncü", "dördüncü", "beşinci",
+          "altıncı", "yedinci", "sekizinci", "dokuzuncu", "onuncu",
+          "on birinci", "on ikinci", "on üçüncü"
+        ];
+        const total = data.totalBranches || 13;
+        const rankWord = ordinals[data.rank] ? ordinals[data.rank] : `${data.rank}.`;
+        
+        let icon = "📍";
+        if (data.rank === 1) icon = "🥇";
+        else if (data.rank === 2) icon = "🥈";
+        else if (data.rank === 3) icon = "🥉";
+        else if (data.rank <= 5) icon = "⭐";
+
+        document.getElementById("dashRankIcon").textContent = icon;
+        document.getElementById("dashRankText").textContent = `${total} mağaza arasında ${rankWord} sıradasınız`;
+        rankBadge.classList.remove("hidden");
+      } else {
+        rankBadge.classList.add("hidden");
+      }
+
+      const oranNum = typeof data.oran === "number" ? data.oran : parseFloat(data.oran) || 0;
+      const progressWidth = Math.min(100, Math.max(0, oranNum));
+      document.getElementById("dashProgressBar").style.width = `${progressWidth}%`;
+      document.getElementById("dashProgressLabel").textContent = `%${formatPercent(data.oran)} tamamlandı`;
+    }
+
+    function logoutBranch() {
+      document.getElementById("branchDashboard").classList.add("hidden");
+      document.getElementById("branchLoginForm").classList.remove("hidden");
+      document.getElementById("branchPasswordInput").value = "";
+      currentBranchSession = null;
+    }
+
+    function setBranchLoading(isLoading) {
+      const btnText = document.getElementById("branchBtnText");
+      const btnIcon = document.getElementById("branchBtnIcon");
+      const spinner = document.getElementById("branchSpinner");
+      const btn = document.getElementById("branchSubmitBtn");
+
+      if (isLoading) {
+        btnText.classList.add("hidden");
+        btnIcon.classList.add("hidden");
+        spinner.classList.remove("hidden");
+        btn.disabled = true;
+      } else {
+        btnText.classList.remove("hidden");
+        btnIcon.classList.remove("hidden");
+        spinner.classList.add("hidden");
+        btn.disabled = false;
+      }
+    }
+
+    // ==========================================
+    // YÖNETİCİ GİRİŞİ & DASHBOARD
+    // ==========================================
+    async function handleAdminLogin(e) {
+      e.preventDefault();
+      const password = document.getElementById("adminPasswordInput").value.trim();
+      if (!password) {
+        showToast("Lütfen yönetici şifresini giriniz", "error");
+        return;
+      }
+
+      setAdminLoading(true);
+      currentAdminPassword = password;
+
+      try {
+        let result = null;
+
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "adminLogin",
+              password: password,
+              adminPassword: password,
+              month: currentAdminMonth
+            })
+          });
+          result = await res.json();
+        } else {
+          await new Promise(r => setTimeout(r, 500));
+          if (password === "Hedefadmin2026.*") {
+            const sumKota = DEMO_OCTOBER_DATA.reduce((a, b) => a + b.kota, 0);
+            const sumPesinat = DEMO_OCTOBER_DATA.reduce((a, b) => a + b.netPesinat, 0);
+            const sumOran = Number(((sumPesinat / sumKota) * 100).toFixed(2));
+            result = {
+              success: true,
+              month: getDefaultCurrentMonth(),
+              months: [getDefaultCurrentMonth()],
+              branches: DEMO_OCTOBER_DATA.map(d => ({ name: d.branch, kota: d.kota, netPesinat: d.netPesinat, oran: d.oran })),
+              totals: { name: "GENEL TOPLAM", kota: sumKota, netPesinat: sumPesinat, oran: sumOran },
+              passwords: DEMO_OCTOBER_DATA.map(d => ({ branch: d.branch, password: "" })),
+              logs: [],
+              lastLogins: {}
+            };
+          } else {
+            result = { success: false, error: "Hatalı yönetici şifresi!" };
+          }
+        }
+
+        if (result && result.success) {
+          currentAdminBranches = result.branches || [];
+          currentAdminTotals = result.totals;
+          currentAdminLogs = (result.logs || []).map(l => ({
+            ...l,
+            dateTime: cleanTurkishDateTime(l.dateTime),
+            month: cleanTurkishMonth(l.month)
+          }));
+          
+          currentAdminLastLogins = {};
+          if (result.lastLogins) {
+            for (const [b, t] of Object.entries(result.lastLogins)) {
+              currentAdminLastLogins[b] = cleanTurkishDateTime(t);
+            }
+          }
+
+          showAdminDashboard(result);
+          showToast("Yönetici girişi başarılı", "success");
+        } else {
+          showToast(result.error || "Giriş başarısız!", "error");
+        }
+
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        setAdminLoading(false);
+      }
+    }
+
+    function showAdminDashboard(data) {
+      document.getElementById("adminLoginForm").classList.add("hidden");
+      document.getElementById("adminDashboard").classList.remove("hidden");
+
+      renderAdminTable(data.branches, data.totals);
+      renderBranchPasswords(data.passwords);
+      renderLoginLogsUI(currentAdminLogs, currentAdminLastLogins);
+    }
+
+    function renderAdminTable(branches, totals) {
+      const tbody = document.getElementById("adminTableBody");
+      const tfoot = document.getElementById("adminTableFoot");
+      tbody.innerHTML = "";
+      tfoot.innerHTML = "";
+
+      if (!branches || branches.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 font-semibold">Bu döneme ait kota verisi bulunamadı.</td></tr>`;
+        return;
+      }
+
+      branches.forEach(b => {
+        const oranNum = typeof b.oran === "number" ? b.oran : parseFloat(b.oran) || 0;
+        const progressWidth = Math.min(100, Math.max(0, oranNum * 5));
+        
+        // Son giriş bilgisi
+        const lastLoginTime = getBranchLastLoginTime(b.name);
+        const loginBadge = lastLoginTime ? 
+          `<span class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/60"><i class="fa-regular fa-clock text-[11px] text-blue-500"></i><span>${lastLoginTime}</span></span>` : 
+          `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold text-slate-400 bg-slate-50">Henüz Girmedi</span>`;
+
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="px-4 sm:px-6 py-4">
+            <button onclick="openBranchHistoryModal('${b.name}')" class="font-bold text-slate-900 hover:text-blue-600 transition flex items-center space-x-2 text-left group">
+              <span class="text-sm sm:text-base group-hover:underline">${b.name}</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400 group-hover:text-blue-600 transition"></i>
+            </button>
+          </td>
+          <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-600 text-base sm:text-lg">%${formatPercent(b.oran)}</td>
+          <td class="px-4 sm:px-6 py-4 text-center cursor-pointer" onclick="openBranchHistoryModal('${b.name}')">${loginBadge}</td>
+          <td class="px-4 sm:px-6 py-4">
+            <div class="flex items-center space-x-3">
+              <div class="flex-grow bg-slate-200/70 rounded-full h-2.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-rose-500 to-red-600 h-full rounded-full" style="width: ${progressWidth}%"></div>
+              </div>
+              <span class="text-xs font-bold text-slate-400 w-12 text-right">%${formatPercent(b.oran)}</span>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      if (totals && totals.oran !== undefined && totals.oran !== null) {
+        document.getElementById("totalOranBadge").textContent = formatPercent(totals.oran);
+
+        const trFoot = document.createElement("tr");
+        trFoot.className = "bg-slate-100/90 border-t-2 border-slate-300";
+        trFoot.innerHTML = `
+          <td class="px-4 sm:px-6 py-4 font-black text-slate-900 text-base">${totals.name || 'GENEL TOPLAM'}</td>
+          <td class="px-4 sm:px-6 py-4 text-center font-black text-rose-700 text-lg sm:text-xl">%${formatPercent(totals.oran)}</td>
+          <td class="px-4 sm:px-6 py-4 text-center text-xs text-slate-500 font-bold">Tüm Şubeler İcmali</td>
+          <td class="px-4 sm:px-6 py-4 text-xs text-slate-500 font-bold">Genel Ortalama</td>
+        `;
+        tfoot.appendChild(trFoot);
+      }
+    }
+
+    function filterBranchTable(query) {
+      const q = (query || "").trim().toLocaleLowerCase('tr-TR');
+      if (!currentAdminBranches) return;
+      const filtered = currentAdminBranches.filter(b => b.name.toLocaleLowerCase('tr-TR').includes(q));
+      renderAdminTable(filtered, currentAdminTotals);
+    }
+
+    function sortBranchesByOran() {
+      if (!currentAdminBranches) return;
+      isSortedAsc = !isSortedAsc;
+      currentAdminBranches.sort((a, b) => {
+        return isSortedAsc ? (a.oran - b.oran) : (b.oran - a.oran);
+      });
+      const btn = document.getElementById("btnSortOran");
+      btn.innerHTML = isSortedAsc ? 
+        '<i class="fa-solid fa-arrow-up-short-wide text-xs"></i><span>Oran (Artan)</span>' : 
+        '<i class="fa-solid fa-arrow-down-wide-short text-xs"></i><span>Oran (Azalan)</span>';
+      renderAdminTable(currentAdminBranches, currentAdminTotals);
+    }
+
+    // ==========================================
+    // LOGLAR & GİRİŞ GEÇMİŞİ YÖNETİMİ
+    // ==========================================
+        // Şube Son Giriş Zamanını Türkçe karakter duyarsız güvenle bulur
+    function getBranchLastLoginTime(branchName) {
+      if (!currentAdminLastLogins || !branchName) return null;
+      if (currentAdminLastLogins[branchName]) return currentAdminLastLogins[branchName];
+
+      const norm = (s) => (s || "").toString().trim()
+        .replace(/İ/g, "i").replace(/I/g, "ı")
+        .toLocaleLowerCase('tr-TR');
+      const target = norm(branchName);
+
+      for (const [key, val] of Object.entries(currentAdminLastLogins)) {
+        if (norm(key) === target) {
+          return val;
+        }
+      }
+      return null;
+    }
+
+    function renderLoginLogsUI(logs, lastLogins) {
+      currentAdminLogs = logs || [];
+      currentAdminLastLogins = lastLogins || {};
+
+      const grid = document.getElementById("branchLastLoginGrid");
+      grid.innerHTML = "";
+
+      const branchList = currentAdminBranches.map(b => b.name).filter(isRealBranch);
+      if (branchList.length === 0) {
+        ["PAŞABAHÇE", "KAVACIK", "YENİDOĞAN", "ÇEKMEKÖY", "SULTANBEYLİ", "KÖRFEZ", "İZMİT", "DERİNCE", "GÖLCÜK", "İNEGÖL", "ÇAYIROVA", "GEBZE", "DÜZCE"].forEach(b => branchList.push(b));
+      }
+
+      branchList.forEach(branch => {
+        const time = getBranchLastLoginTime(branch);
+        const card = document.createElement("div");
+        card.className = "bg-slate-50 hover:bg-blue-50/50 border border-slate-200/80 hover:border-blue-300 rounded-2xl p-3.5 flex items-center justify-between cursor-pointer transition active:scale-[0.99] group shadow-sm";
+        card.onclick = () => openBranchHistoryModal(branch);
+        card.innerHTML = `
+          <div class="min-w-0 pr-2">
+            <h5 class="text-xs font-black text-slate-800 group-hover:text-blue-700 transition truncate flex items-center space-x-1.5">
+              <span>${branch}</span>
+              <i class="fa-solid fa-magnifying-glass text-[9px] text-slate-400 opacity-0 group-hover:opacity-100 transition"></i>
+            </h5>
+            <span class="text-[11px] font-bold ${time ? 'text-blue-600' : 'text-slate-400'} block mt-0.5 truncate">
+              ${time ? time : 'Henüz giriş yapmadı'}
+            </span>
+          </div>
+          <div class="w-7 h-7 rounded-xl ${time ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-400'} flex items-center justify-center text-xs flex-shrink-0">
+            <i class="fa-solid ${time ? 'fa-check' : 'fa-minus'}"></i>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      renderLogsTableRows(currentAdminLogs);
+    }
+
+    function renderLogsTableRows(logs) {
+      const tbody = document.getElementById("logsTableBody");
+      tbody.innerHTML = "";
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400 font-semibold">Henüz kaydedilmiş giriş logu bulunmuyor.</td></tr>`;
+        return;
+      }
+
+      logs.forEach(log => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+        tr.innerHTML = `
+          <td class="px-4 sm:px-6 py-3.5 font-mono text-xs font-bold text-slate-700 flex items-center space-x-2">
+            <i class="fa-regular fa-clock text-blue-500"></i>
+            <span>${cleanTurkishDateTime(log.dateTime)}</span>
+          </td>
+          <td class="px-4 sm:px-6 py-3.5">
+            <button onclick="openBranchHistoryModal('${log.branch}')" class="font-bold text-slate-900 hover:text-blue-600 hover:underline transition">
+              ${log.branch}
+            </button>
+          </td>
+          <td class="px-4 sm:px-6 py-3.5 text-center font-bold text-slate-600">${cleanTurkishMonth(log.month)}</td>
+          <td class="px-4 sm:px-6 py-3.5 text-center">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 inline-block"></span>
+              <span>${log.status || 'Başarılı'}</span>
+            </span>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function filterLogsTable(query) {
+      const q = (query || "").trim().toLocaleLowerCase('tr-TR');
+      if (!currentAdminLogs) return;
+      const filtered = currentAdminLogs.filter(l => l.branch.toLocaleLowerCase('tr-TR').includes(q));
+      renderLogsTableRows(filtered);
+    }
+
+    
+    
+
+    async function refreshLoginLogs() {
+      const btn = document.getElementById("btnRefreshLogs");
+      btn.innerHTML = '<i class="fa-solid fa-arrows-rotate animate-spin text-xs"></i><span>Yenileniyor...</span>';
+      btn.disabled = true;
+
+      try {
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "getLogs",
+              adminPassword: currentAdminPassword,
+              password: currentAdminPassword
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            currentAdminLogs = (data.logs || []).map(l => ({
+              ...l,
+              dateTime: cleanTurkishDateTime(l.dateTime),
+              month: cleanTurkishMonth(l.month)
+            }));
+            
+            currentAdminLastLogins = {};
+            if (data.lastLogins) {
+              for (const [b, t] of Object.entries(data.lastLogins)) {
+                currentAdminLastLogins[b] = cleanTurkishDateTime(t);
+              }
+            }
+
+            renderLoginLogsUI(currentAdminLogs, currentAdminLastLogins);
+            renderAdminTable(currentAdminBranches, currentAdminTotals);
+            showToast("Giriş logları güncellendi", "success");
+          } else {
+            showToast(data.error || "Loglar alınamadı", "error");
+          }
+        }
+      } catch (err) {
+        showToast("Hata: " + err.message, "error");
+      } finally {
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate text-xs"></i><span>Logları Yenile</span>';
+        btn.disabled = false;
+      }
+    }
+
+    // ==========================================
+    // ŞUBEYE ÖZEL GİRİŞ GEÇMİŞİ MODAL (POP-UP)
+    // ==========================================
+    function openBranchHistoryModal(branchName) {
+      document.getElementById("modalBranchTitle").textContent = `${branchName} ŞUBESİ`;
+      
+      const lastLogin = getBranchLastLoginTime(branchName);
+      document.getElementById("modalLastLoginTime").textContent = lastLogin ? lastLogin : "Henüz Girmedi";
+
+      // Sadece bu şubeye ait logları Türkçe karakter toleransıyla filtrele
       const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
       const target = norm(branchName);
-      const rankIndex = allBranches.findIndex(b => norm(b.name) === target);
-      const rank = rankIndex !== -1 ? (rankIndex + 1) : 0;
-      const totalCount = allBranches.length || 13;
+      const branchLogs = currentAdminLogs.filter(l => norm(l.branch) === target);
+      document.getElementById("modalTotalLogCount").textContent = `${branchLogs.length} Kez Giriş`;
 
-      recordBranchLoginLog(ss, branchName, month);
+      const tbody = document.getElementById("modalBranchLogsBody");
+      tbody.innerHTML = "";
 
-      return createJsonResponse({
-        success: true,
-        branch: branchName,
-        month: month,
-        oran: branchData.oran,
-        rank: rank,
-        totalBranches: totalCount,
-        lastUpdated: branchData.lastUpdated || getFormattedDateTime()
+      if (branchLogs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-6 text-center text-slate-400 font-semibold">Bu şubeye ait giriş kaydı bulunamadı.</td></tr>`;
+      } else {
+        branchLogs.forEach(l => {
+          const tr = document.createElement("tr");
+          tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+          tr.innerHTML = `
+            <td class="p-3 font-mono font-bold text-slate-700 flex items-center space-x-1.5">
+              <i class="fa-regular fa-clock text-blue-500 text-[11px]"></i>
+              <span>${cleanTurkishDateTime(l.dateTime)}</span>
+            </td>
+            <td class="p-3 text-center font-bold text-slate-600">${cleanTurkishMonth(l.month)}</td>
+            <td class="p-3 text-center">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 inline-block"></span>
+                <span>Başarılı</span>
+              </span>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      document.getElementById("branchHistoryModal").classList.remove("hidden");
+    }
+
+    function closeBranchHistoryModal() {
+      document.getElementById("branchHistoryModal").classList.add("hidden");
+    }
+
+    function handleModalBackdropClick(e) {
+      if (e.target.id === "branchHistoryModal") {
+        closeBranchHistoryModal();
+      }
+    }
+
+    // ==========================================
+    // ŞİFRELER
+    // ==========================================
+    function renderBranchPasswords(passwords) {
+      allLoadedPasswords = (passwords || []).filter(p => isRealBranch(p.branch || p.name));
+      filterPasswordList(document.getElementById("pwdSearchInput")?.value || "");
+    }
+
+    function filterPasswordList(q) {
+      const container = document.getElementById("branchPasswordList");
+      container.innerHTML = "";
+      const query = (q || "").trim().toLocaleLowerCase('tr-TR');
+
+      const filtered = allLoadedPasswords.filter(p => {
+        const b = (p.branch || p.name || "").toString();
+        return b.toLocaleLowerCase('tr-TR').includes(query);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="py-4 text-center text-xs text-slate-400 font-semibold">Şube bulunamadı.</p>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const bName = (item.branch || item.name || "").toString();
+        const pwd = (item.password !== undefined && item.password !== null) ? item.password.toString() : "";
+        const div = document.createElement("div");
+        div.className = "py-3 flex items-center justify-between gap-3 border-b border-slate-100 last:border-0";
+        div.innerHTML = `
+          <div class="flex items-center space-x-3 min-w-0">
+            <div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              <i class="fa-solid fa-store"></i>
+            </div>
+            <span class="text-xs sm:text-sm font-bold text-slate-900 truncate">${bName}</span>
+          </div>
+          <div class="flex items-center space-x-2 flex-shrink-0">
+            <input type="text" id="pwd_${bName}" value="${pwd}" placeholder="Şifre giriniz" class="w-24 sm:w-28 text-center bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-mono font-bold focus:outline-none focus:ring-1 focus:ring-rose-500">
+            <button onclick="saveSingleBranchPassword('${bName}')" class="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition active:scale-95" title="Sheets SİSTEM_AYARLAR Sayfasına Kaydet">
+              <i class="fa-solid fa-check"></i>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
       });
     }
 
-    // 2. YÖNETİCİ GİRİŞİ
-    if (action === "adminLogin") {
-      const isAdminValid = verifyAdminPassword(ss, adminPass);
-      if (!isAdminValid) {
-        return createJsonResponse({ success: false, error: "Yönetici şifresi hatalıdır." });
-      }
+    async function saveSingleBranchPassword(branchName) {
+      const input = document.getElementById(`pwd_${branchName}`);
+      const newPassword = input.value.trim();
 
-      const month = (payload.month || getCurrentMonthYearStr()).toString().trim();
-      const monthData = getAllBranchesDataForMonth(ss, month);
-      const logsData = getBranchLoginLogs(ss);
-      const passwords = getAllBranchPasswords(ss);
-
-      return createJsonResponse({ 
-        success: true, 
-        message: "Yönetici girişi başarılı.",
-        month: month,
-        currentMonth: getCurrentMonthYearStr(),
-        branches: monthData.branches,
-        totals: monthData.totals,
-        passwords: passwords,
-        logs: logsData.logs,
-        lastLogins: logsData.lastLogins
-      });
-    }
-
-    // LOGLARI ÇEK (getLogs veya getBranchLogs)
-    if (action === "getLogs" || action === "getBranchLogs") {
-      const logsData = getBranchLoginLogs(ss);
-      return createJsonResponse({ 
-        success: true, 
-        logs: logsData.logs, 
-        lastLogins: logsData.lastLogins 
-      });
-    }
-
-    // LOGLARI TEMİZLE / SIFIRLA
-    if (action === "clearLogs") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Yetkisiz erişim." });
-      }
-
-      const logSheet = getSheetSafe(ss, LOGS_SHEET_NAME);
-      if (logSheet) {
-        const lastRow = logSheet.getLastRow();
-        if (lastRow > 1) {
-          logSheet.getRange(2, 1, lastRow - 1, Math.max(4, logSheet.getLastColumn())).clearContent();
-        }
-      }
-      return createJsonResponse({ success: true, message: "Giriş logları başarıyla temizlendi." });
-    }
-
-    // 3. YÖNETİCİ VERİLERİNİ ÇEK
-    if (action === "getAdminData") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Yetkisiz erişim. Yönetici şifresi geçersiz." });
-      }
-
-      const month = (payload.month || getCurrentMonthYearStr()).toString().trim();
-      const monthData = getAllBranchesDataForMonth(ss, month);
-      const logsData = getBranchLoginLogs(ss);
-      const passwords = getAllBranchPasswords(ss);
-
-      return createJsonResponse({
-        success: true,
-        month: month,
-        currentMonth: getCurrentMonthYearStr(),
-        branches: monthData.branches,
-        totals: monthData.totals,
-        passwords: passwords,
-        logs: logsData.logs,
-        lastLogins: logsData.lastLogins
-      });
-    }
-
-    // 4. EXCEL/CSV YÜKLEME
-    if (action === "uploadData") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Yetkisiz erişim. Yönetici şifresi geçersiz." });
-      }
-
-      const month = (payload.month || getCurrentMonthYearStr()).toString().trim();
-      const rows = payload.rows;
-
-      if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        return createJsonResponse({ success: false, error: "Yüklenecek geçerli satır verisi bulunamadı." });
-      }
-
-      const savedCount = saveUploadedRowsToMonthSheet(ss, month, rows);
-      return createJsonResponse({
-        success: true,
-        message: month + " dönemi için " + savedCount + " adet şube verisi başarıyla kaydedildi.",
-        month: month,
-        count: savedCount
-      });
-    }
-
-    // 5. ŞUBE ŞİFRELERİNİ LİSTELE (SİSTEM_AYARLAR sayfasından çeker)
-    if (action === "getBranchPasswords") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Yetkisiz erişim." });
-      }
-
-      const passwords = getAllBranchPasswords(ss);
-      return createJsonResponse({ success: true, passwords: passwords });
-    }
-
-    // 6. TEK ŞUBE ŞİFRESİNİ GÜNCELLE
-    if (action === "updateBranchPassword") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Yetkisiz erişim." });
-      }
-
-      const branchName = (payload.branchName || "").toString().trim();
-      const newPassword = (payload.newPassword || "").toString().trim();
-
-      if (!branchName || !newPassword) {
-        return createJsonResponse({ success: false, error: "Şube adı ve yeni şifre belirtilmelidir." });
-      }
-
-      updateSingleBranchPassword(ss, branchName, newPassword);
-      return createJsonResponse({ 
-        success: true, 
-        message: branchName + " şubesinin şifresi başarıyla güncellendi." 
-      });
-    }
-
-    // 7. YÖNETİCİ ŞİFRESİNİ GÜNCELLE
-    if (action === "updateAdminPassword" || action === "changeAdminPassword") {
-      if (!verifyAdminPassword(ss, adminPass)) {
-        return createJsonResponse({ success: false, error: "Mevcut yönetici şifresi hatalı." });
-      }
-
-      const newAdminPassword = (payload.newAdminPassword || payload.newPassword || "").toString().trim();
-      if (!newAdminPassword || newAdminPassword.length < 4) {
-        return createJsonResponse({ success: false, error: "Yeni yönetici şifresi en az 4 karakter olmalıdır." });
-      }
-
-      setAdminPassword(ss, newAdminPassword);
-      return createJsonResponse({ success: true, message: "Yönetici şifresi başarıyla değiştirildi." });
-    }
-
-    return createJsonResponse({ success: false, error: "Geçersiz POST aksiyonu: " + action });
-  } catch (err) {
-    return createJsonResponse({ success: false, error: err.toString() });
-  }
-}
-
-function setupInitialSheets(ss) {
-  ensureSystemSheets(ss);
-  
-  const currentMonth = getCurrentMonthYearStr();
-  let monthSheet = getSheetSafe(ss, currentMonth);
-  if (!monthSheet) {
-    monthSheet = ss.insertSheet(currentMonth);
-    monthSheet.getRange(1, 1, 1, 4).setValues([["Mağaza Adı", "kota", "Net Peşinat Toplam", "Oran"]]);
-    monthSheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f1f5f9");
-    
-    const sampleRows = [
-      ["PAŞABAHÇE", 2500000, 125000, 5.0],
-      ["KAVACIK", 2800000, 168000, 6.0],
-      ["YENİDOĞAN", 2200000, 88000, 4.0],
-      ["ÇEKMEKÖY", 3100000, 217000, 7.0],
-      ["SULTANBEYLİ", 3500000, 280000, 8.0],
-      ["KÖRFEZ", 2400000, 120000, 5.0],
-      ["İZMİT", 4000000, 360000, 9.0],
-      ["DERİNCE", 3374798, 41562, 1.23],
-      ["GÖLCÜK", 2600000, 156000, 6.0],
-      ["İNEGÖL", 2900000, 203000, 7.0],
-      ["ÇAYIROVA", 2700000, 135000, 5.0],
-      ["GEBZE", 4200000, 420000, 10.0],
-      ["DÜZCE", 2300000, 92000, 4.0]
-    ];
-    monthSheet.getRange(2, 1, sampleRows.length, 4).setValues(sampleRows);
-  }
-}
-
-function ensureSystemSheets(ss) {
-  let settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) {
-    settingsSheet = ss.insertSheet(SETTINGS_SHEET_NAME);
-    settingsSheet.getRange(1, 1, 1, 2).setValues([["Ayar Adı / Şube Adı", "Değer / Şifre"]]);
-    settingsSheet.getRange(1, 1, 1, 2).setFontWeight("bold").setBackground("#e2e8f0");
-
-    settingsSheet.appendRow(["ADMIN_PASSWORD", DEFAULT_ADMIN_PASSWORD]);
-
-    const defaultBranchPins = [
-      ["PAŞABAHÇE", "729415"],
-      ["KAVACIK", "831940"],
-      ["YENİDOĞAN", "516839"],
-      ["ÇEKMEKÖY", "649201"],
-      ["SULTANBEYLİ", "382710"],
-      ["KÖRFEZ", "914283"],
-      ["İZMİT", "472918"],
-      ["DERİNCE", "638104"],
-      ["GÖLCÜK", "529174"],
-      ["İNEGÖL", "718392"],
-      ["ÇAYIROVA", "840291"],
-      ["GEBZE", "391746"],
-      ["DÜZCE", "628491"]
-    ];
-
-    for (let i = 0; i < defaultBranchPins.length; i++) {
-      settingsSheet.appendRow(defaultBranchPins[i]);
-    }
-  }
-
-  ensureLogsSheet(ss);
-}
-
-function ensureLogsSheet(ss) {
-  let logSheet = getSheetSafe(ss, LOGS_SHEET_NAME);
-  if (!logSheet) {
-    logSheet = ss.insertSheet(LOGS_SHEET_NAME);
-    logSheet.getRange(1, 1, 1, 4).setValues([["Giriş Tarihi & Saati", "Giriş Yapan Şube", "Görüntülenen Dönem", "Durum"]]);
-    logSheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f8fafc");
-    logSheet.setFrozenRows(1);
-    logSheet.setColumnWidth(1, 180);
-    logSheet.setColumnWidth(2, 160);
-    logSheet.setColumnWidth(3, 150);
-    logSheet.setColumnWidth(4, 130);
-  }
-  return logSheet;
-}
-
-function recordBranchLoginLog(ss, branchName, month) {
-  try {
-    const logSheet = ensureLogsSheet(ss);
-    const formattedTime = getFormattedDateTime();
-    const lastRow = logSheet.getLastRow();
-    const newRange = logSheet.getRange(lastRow + 1, 1, 1, 4);
-    newRange.setNumberFormat("@");
-    newRange.setValues([[formattedTime, branchName, month, "Başarılı Giriş"]]);
-  } catch (err) {
-    Logger.log("Log kayıt hatası: " + err.message);
-  }
-}
-
-function getBranchLoginLogs(ss) {
-  const logSheet = getSheetSafe(ss, LOGS_SHEET_NAME);
-  if (!logSheet) {
-    return { logs: [], lastLogins: {} };
-  }
-
-  const lastRow = logSheet.getLastRow();
-  const lastCol = Math.max(4, logSheet.getLastColumn());
-  if (lastRow <= 1) {
-    return { logs: [], lastLogins: {} };
-  }
-
-  const allData = logSheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const header = allData[0].map(h => (h || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR'));
-
-  let dateCol = header.findIndex(h => h.includes("tarih") || h.includes("zaman") || h.includes("saat") || h.includes("date"));
-  let branchCol = header.findIndex(h => h.includes("şube") || h.includes("sube") || h.includes("mağaza") || h.includes("magaza") || h.includes("branch"));
-  let monthCol = header.findIndex(h => h.includes("dönem") || h.includes("donem") || h.includes("ay") || h.includes("month"));
-  let statusCol = header.findIndex(h => h.includes("durum") || h.includes("status"));
-
-  if (dateCol === -1) dateCol = 0;
-  if (branchCol === -1) branchCol = 1;
-  if (monthCol === -1) monthCol = 2;
-  if (statusCol === -1) statusCol = 3;
-
-  const logs = [];
-  const lastLogins = {};
-
-  // En son kayıtlardan geriye doğru tara
-  for (let i = allData.length - 1; i >= 1; i--) {
-    const row = allData[i];
-    let rawDate = row[dateCol];
-    let dateStr = "";
-
-    if (rawDate instanceof Date) {
-      dateStr = Utilities.formatDate(rawDate, "GMT+3", "dd.MM.yyyy HH:mm");
-    } else if (rawDate) {
-      dateStr = rawDate.toString().trim();
-      if (dateStr.indexOf("GMT") !== -1 || dateStr.length > 25) {
+      if (API_URL) {
         try {
-          const parsed = new Date(dateStr);
-          if (!isNaN(parsed.getTime())) {
-            dateStr = Utilities.formatDate(parsed, "GMT+3", "dd.MM.yyyy HH:mm");
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "updateBranchPassword",
+              adminPassword: currentAdminPassword,
+              password: currentAdminPassword,
+              branchName: branchName,
+              newPassword: newPassword
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            showToast(`${branchName} şifresi Sheets'e kaydedildi`, "success");
+          } else {
+            showToast(data.error || "Güncelleme başarısız", "error");
           }
-        } catch (e) {}
+        } catch (err) {
+          showToast("Hata: " + err.message, "error");
+        }
+      } else {
+        showToast(`${branchName} şifresi güncellendi (Demo)`, "success");
       }
     }
 
-    const branch = row[branchCol] ? row[branchCol].toString().trim() : "";
-    if (!branch) continue;
-
-    let month = row[monthCol] ? row[monthCol].toString().trim() : "";
-    if (month.indexOf("GMT") !== -1 || month.length > 25) {
-      try {
-        const parsedM = new Date(month);
-        if (!isNaN(parsedM.getTime())) {
-          const mNames = ["OCAK","ŞUBAT","MART","NİSAN","MAYIS","HAZİRAN","TEMMUZ","AĞUSTOS","EYLÜL","EKİM","KASIM","ARALIK"];
-          month = mNames[parsedM.getMonth()] + " " + parsedM.getFullYear();
-        }
-      } catch (e) {}
-    }
-
-    const status = row[statusCol] ? row[statusCol].toString().trim() : "Başarılı Giriş";
-
-    logs.push({
-      dateTime: dateStr,
-      branch: branch,
-      month: month,
-      status: status
-    });
-
-    // Hem orijinal adı, hem büyük harf Türkçe adını sakla
-    if (!lastLogins[branch]) {
-      lastLogins[branch] = dateStr;
-    }
-    const upperKey = branch.toLocaleUpperCase('tr-TR');
-    if (!lastLogins[upperKey]) {
-      lastLogins[upperKey] = dateStr;
-    }
-  }
-
-  return {
-    logs: logs.slice(0, 300),
-    lastLogins: lastLogins
-  };
-}
-
-function getBranchDataForMonth(ss, branchName, monthName) {
-  const sheet = getSheetSafe(ss, monthName);
-  if (!sheet) return null;
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return null;
-
-  const data = sheet.getRange(1, 1, lastRow, 4).getValues();
-  const header = data[0].map(h => (h || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR'));
-  
-  let branchCol = header.findIndex(h => h.includes("mağaza") || h.includes("magaza") || h.includes("şube") || h.includes("sube"));
-  let kotaCol = header.findIndex(h => h.includes("kota"));
-  let pesinatCol = header.findIndex(h => h.includes("peşinat") || h.includes("pesinat"));
-  let oranCol = header.findIndex(h => h.includes("oran"));
-
-  if (branchCol === -1) branchCol = 0;
-  if (kotaCol === -1) kotaCol = 1;
-  if (pesinatCol === -1) pesinatCol = 2;
-  if (oranCol === -1) oranCol = 3;
-
-  const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
-  const targetName = norm(branchName);
-
-  for (let i = 1; i < data.length; i++) {
-    const rowBranch = norm(data[i][branchCol]);
-    if (rowBranch === targetName) {
-      const kota = parseNumeric(data[i][kotaCol]);
-      const pesinat = parseNumeric(data[i][pesinatCol]);
-      let oran = 0;
-
-      if (oranCol < data[i].length && data[i][oranCol] !== "" && data[i][oranCol] !== null) {
-        oran = parseNumeric(data[i][oranCol]);
-        if (oran > 0 && oran <= 1 && data[i][oranCol].toString().indexOf("%") === -1 && oran < 0.99) {
-          oran = oran * 100;
-        }
-      } else if (kota > 0) {
-        oran = (pesinat / kota) * 100;
+    async function changeAdminPasswordAction() {
+      const newPwd = document.getElementById("newAdminPassword").value.trim();
+      if (!newPwd) {
+        showToast("Lütfen yeni şifre giriniz", "error");
+        return;
       }
+      if (API_URL) {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "changeAdminPassword",
+              oldPassword: currentAdminPassword,
+              newPassword: newPwd
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            currentAdminPassword = newPwd;
+            document.getElementById("newAdminPassword").value = "";
+            showToast("Yönetici şifresi güncellendi", "success");
+          } else {
+            showToast(data.error || "Şifre değiştirilemedi", "error");
+          }
+        } catch (err) {
+          showToast("Hata: " + err.message, "error");
+        }
+      } else {
+        currentAdminPassword = newPwd;
+        document.getElementById("newAdminPassword").value = "";
+        showToast("Yönetici şifresi güncellendi (Demo)", "success");
+      }
+    }
 
-      return {
-        branch: branchName,
-        month: monthName,
-        oran: parseFloat(oran.toFixed(2)),
-        lastUpdated: getFormattedDateTime()
+    async function loadAdminDataForMonth(month) {
+      currentAdminMonth = month;
+      if (API_URL) {
+        try {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "adminLogin",
+              adminPassword: currentAdminPassword,
+              month: month
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            currentAdminBranches = data.branches || [];
+            currentAdminTotals = data.totals;
+            renderAdminTable(data.branches, data.totals);
+          }
+        } catch (err) {
+          showToast("Dönem verisi alınamadı", "error");
+        }
+      }
+    }
+
+    function logoutAdmin() {
+      document.getElementById("adminDashboard").classList.add("hidden");
+      document.getElementById("adminLoginForm").classList.remove("hidden");
+      document.getElementById("adminPasswordInput").value = "";
+      currentAdminPassword = "";
+      currentAdminBranches = [];
+      currentAdminTotals = null;
+    }
+
+    function setAdminLoading(isLoading) {
+      const btnText = document.getElementById("adminBtnText");
+      const btnIcon = document.getElementById("adminBtnIcon");
+      const spinner = document.getElementById("adminSpinner");
+      const btn = document.getElementById("adminSubmitBtn");
+
+      if (isLoading) {
+        btnText.classList.add("hidden");
+        btnIcon.classList.add("hidden");
+        spinner.classList.remove("hidden");
+        btn.disabled = true;
+      } else {
+        btnText.classList.remove("hidden");
+        btnIcon.classList.remove("hidden");
+        spinner.classList.add("hidden");
+        btn.disabled = false;
+      }
+    }
+
+    function switchAdminTab(tab) {
+      document.getElementById("adminTabTable").classList.add("hidden");
+      document.getElementById("adminTabLogs").classList.add("hidden");
+      document.getElementById("adminTabUpload").classList.add("hidden");
+      document.getElementById("adminTabPasswords").classList.add("hidden");
+
+      document.getElementById("tabBtnTable").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+      document.getElementById("tabBtnLogs").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+      document.getElementById("tabBtnUpload").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+      document.getElementById("tabBtnPasswords").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition flex items-center space-x-2";
+
+      if (tab === "table") {
+        document.getElementById("adminTabTable").classList.remove("hidden");
+        document.getElementById("tabBtnTable").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-rose-600 text-rose-600 transition flex items-center space-x-2";
+      } else if (tab === "logs") {
+        document.getElementById("adminTabLogs").classList.remove("hidden");
+        document.getElementById("tabBtnLogs").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-blue-600 text-blue-600 transition flex items-center space-x-2";
+      } else if (tab === "upload") {
+        document.getElementById("adminTabUpload").classList.remove("hidden");
+        document.getElementById("tabBtnUpload").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-emerald-600 text-emerald-600 transition flex items-center space-x-2";
+      } else if (tab === "passwords") {
+        document.getElementById("adminTabPasswords").classList.remove("hidden");
+        document.getElementById("tabBtnPasswords").className = "px-4 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 border-amber-500 text-amber-600 transition flex items-center space-x-2";
+      }
+    }
+
+    // ==========================================
+    // EXCEL YÜKLEME
+    // ==========================================
+    function handleDragOver(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.add("border-rose-500", "bg-rose-50/40");
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-rose-500", "bg-rose-50/40");
+    }
+
+    function handleFileDrop(e) {
+      e.preventDefault();
+      document.getElementById("dropZone").classList.remove("border-rose-500", "bg-rose-50/40");
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        processExcelFile(e.dataTransfer.files[0]);
+      }
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files.length > 0) {
+        processExcelFile(e.target.files[0]);
+      }
+    }
+
+    function processExcelFile(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          if (!json || json.length < 2) {
+            showToast("Dosya boş veya uygun formatta değil!", "error");
+            return;
+          }
+
+          const headers = json[0].map(h => (h || "").toString().toLowerCase().trim());
+          let branchCol = -1, kotaCol = -1, pesinatCol = -1;
+
+          headers.forEach((h, idx) => {
+            if (h.includes("mağaza") || h.includes("sube") || h.includes("şube") || h.includes("magaza")) branchCol = idx;
+            if (h.includes("kota")) kotaCol = idx;
+            if (h.includes("peşinat") || h.includes("pesinat") || h.includes("net")) pesinatCol = idx;
+          });
+
+          if (branchCol === -1) branchCol = 0;
+          if (kotaCol === -1) kotaCol = 1;
+          if (pesinatCol === -1) pesinatCol = 2;
+
+          pendingUploadRows = [];
+          for (let i = 1; i < json.length; i++) {
+            const row = json[i];
+            const branch = (row[branchCol] || "").toString().trim().toLocaleUpperCase('tr-TR');
+            if (!branch || branch === "TOPLAM" || branch === "GENEL TOPLAM") continue;
+
+            const kota = parseNumericLocal(row[kotaCol]);
+            const pesinat = parseNumericLocal(row[pesinatCol]);
+            const oran = kota > 0 ? Number(((pesinat / kota) * 100).toFixed(2)) : 0;
+
+            pendingUploadRows.push({ branch, kota, netPesinat: pesinat, oran });
+          }
+
+          if (pendingUploadRows.length === 0) {
+            showToast("Geçerli şube satırı bulunamadı!", "error");
+            return;
+          }
+
+          document.getElementById("previewFileName").textContent = file.name;
+          document.getElementById("previewRowCount").textContent = `${pendingUploadRows.length} şube başarıyla tespit edildi`;
+          
+          const tbody = document.getElementById("previewTableBody");
+          tbody.innerHTML = "";
+          pendingUploadRows.forEach(r => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td class="p-2.5 font-bold">${r.branch}</td>
+              <td class="p-2.5 text-center font-bold text-rose-600">%${formatPercent(r.oran)}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+          document.getElementById("uploadPreviewSection").classList.remove("hidden");
+          showToast(`${pendingUploadRows.length} şube verisi hazırlandı`, "success");
+
+        } catch (err) {
+          showToast("Excel okuma hatası: " + err.message, "error");
+        }
       };
-    }
-  }
-
-  return null;
-}
-
-function getAllBranchesDataForMonth(ss, monthName) {
-  const sheet = getSheetSafe(ss, monthName);
-  const emptyResult = { branches: [], totals: { name: "GENEL TOPLAM", kota: 0, pesinat: 0, oran: 0 } };
-  if (!sheet) return emptyResult;
-
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) return emptyResult;
-
-  const data = sheet.getRange(1, 1, lastRow, Math.max(4, sheet.getLastColumn())).getValues();
-  const header = data[0].map(h => (h || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR'));
-
-  let branchCol = header.findIndex(h => h.includes("mağaza") || h.includes("magaza") || h.includes("şube") || h.includes("sube"));
-  let kotaCol = header.findIndex(h => h.includes("kota"));
-  let pesinatCol = header.findIndex(h => h.includes("peşinat") || h.includes("pesinat"));
-  let oranCol = header.findIndex(h => h.includes("oran"));
-
-  if (branchCol === -1) branchCol = 0;
-  if (kotaCol === -1) kotaCol = 1;
-  if (pesinatCol === -1) pesinatCol = 2;
-  if (oranCol === -1) oranCol = 3;
-
-  const branches = [];
-  let sumKota = 0;
-  let sumPesinat = 0;
-  let sheetTotalKota = 0;
-  let sheetTotalPesinat = 0;
-
-  for (let i = 1; i < data.length; i++) {
-    const rawName = (data[i][branchCol] || "").toString().trim();
-    if (!rawName) continue;
-
-    const kota = parseNumeric(data[i][kotaCol]);
-    const pesinat = parseNumeric(data[i][pesinatCol]);
-
-    // GENEL TOPLAM satırı ise kota ve peşinatını al
-    const normName = rawName.toLocaleLowerCase('tr-TR').replace(/ı/g, 'i');
-    if (normName.includes("toplam") || normName.includes("total")) {
-      if (kota > 0) sheetTotalKota = kota;
-      if (pesinat > 0) sheetTotalPesinat = pesinat;
-      continue;
+      reader.readAsArrayBuffer(file);
     }
 
-    // Gerçek şube değilse atla
-    if (!isRealBranch(rawName)) continue;
+    function clearSelectedFile() {
+      pendingUploadRows = [];
+      document.getElementById("uploadPreviewSection").classList.add("hidden");
+      document.getElementById("excelFileInput").value = "";
+    }
 
-    let oran = 0;
-    if (oranCol < data[i].length && data[i][oranCol] !== "" && data[i][oranCol] !== null) {
-      oran = parseNumeric(data[i][oranCol]);
-      if (oran > 0 && oran <= 1 && data[i][oranCol].toString().indexOf("%") === -1 && oran < 0.99) {
-        oran = oran * 100;
+    async function submitDataToGoogleSheets() {
+      if (pendingUploadRows.length === 0) {
+        showToast("Lütfen önce bir Excel dosyası seçiniz", "error");
+        return;
       }
-    } else if (kota > 0) {
-      oran = (pesinat / kota) * 100;
-    }
 
-    sumKota += kota;
-    sumPesinat += pesinat;
+      const targetMonth = getDefaultCurrentMonth();
+      const btn = document.getElementById("btnSendToSheets");
+      const btnText = document.getElementById("btnSendText");
+      const spinner = document.getElementById("uploadSpinner");
 
-    branches.push({
-      name: rawName,
-      branch: rawName,
-      oran: parseFloat(oran.toFixed(2))
-    });
-  }
+      btn.disabled = true;
+      btnText.textContent = `${targetMonth} Sayfasına Yazılıyor...`;
+      spinner.classList.remove("hidden");
 
-  // Orana göre yüksekten düşüğe sırala (1. sıra en başarılı)
-  branches.sort((a, b) => b.oran - a.oran);
-
-  // Genel toplam oranını hesapla (Net Peşinat / Kota * 100)
-  const finalTotalKota = sheetTotalKota > 0 ? sheetTotalKota : sumKota;
-  const finalTotalPesinat = sheetTotalPesinat > 0 ? sheetTotalPesinat : sumPesinat;
-  let totalOran = 0;
-  if (finalTotalKota > 0) {
-    totalOran = parseFloat(((finalTotalPesinat / finalTotalKota) * 100).toFixed(2));
-  }
-
-  const totals = {
-    name: "GENEL TOPLAM",
-    kota: finalTotalKota,
-    pesinat: finalTotalPesinat,
-    oran: totalOran
-  };
-
-  return {
-    branches: branches,
-    totals: totals
-  };
-}
-
-function saveUploadedRowsToMonthSheet(ss, monthName, rows) {
-  let sheet = getSheetSafe(ss, monthName);
-  if (!sheet) {
-    sheet = ss.insertSheet(monthName);
-  } else {
-    sheet.clearContents();
-  }
-
-  sheet.getRange(1, 1, 1, 4).setValues([["Mağaza Adı", "kota", "Net Peşinat Toplam", "Oran"]]);
-  sheet.getRange(1, 1, 1, 4).setFontWeight("bold").setBackground("#f1f5f9");
-
-  const formattedRows = [];
-  for (let i = 0; i < rows.length; i++) {
-    const r = rows[i];
-    const bName = (r.branch || r.name || r["Mağaza Adı"] || "").toString().trim();
-    if (!bName) continue;
-
-    const kota = parseNumeric(r.kota || r.target);
-    const pesinat = parseNumeric(r.pesinat || r.achieved || r["Net Peşinat Toplam"]);
-    let oran = 0;
-
-    if (r.oran !== undefined && r.oran !== null && r.oran !== "") {
-      oran = parseNumeric(r.oran);
-    } else if (kota > 0) {
-      oran = parseFloat(((pesinat / kota) * 100).toFixed(2));
-    }
-
-    formattedRows.push([bName, kota, pesinat, oran]);
-  }
-
-  if (formattedRows.length > 0) {
-    sheet.getRange(2, 1, formattedRows.length, 4).setValues(formattedRows);
-  }
-
-  return formattedRows.length;
-}
-
-function getAvailableMonths(ss) {
-  const sheets = ss.getSheets();
-  const months = [];
-
-  for (let i = 0; i < sheets.length; i++) {
-    const name = sheets[i].getName();
-    if (name !== SETTINGS_SHEET_NAME && 
-        name !== LOGS_SHEET_NAME && 
-        !name.startsWith("_") &&
-        name !== "Sayfa1" && 
-        name !== "Sheet1") {
-      months.push(name);
-    }
-  }
-
-  const current = getCurrentMonthYearStr();
-  if (months.indexOf(current) === -1) {
-    months.unshift(current);
-  }
-
-  return months;
-}
-
-function getUniqueBranches(ss) {
-  const branchSet = {};
-
-  // 1. Resmi şubeleri baz al
-  for (let i = 0; i < OFFICIAL_HEDEF_BRANCHES.length; i++) {
-    branchSet[OFFICIAL_HEDEF_BRANCHES[i]] = true;
-  }
-
-  // 2. SİSTEM_AYARLAR'dan ekle
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (settingsSheet) {
-    const lastRow = settingsSheet.getLastRow();
-    if (lastRow > 1) {
-      const data = settingsSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-      for (let i = 0; i < data.length; i++) {
-        const val = (data[i][0] || "").toString().trim();
-        if (isRealBranch(val)) {
-          branchSet[val] = true;
-        }
-      }
-    }
-  }
-
-  // 3. Ay sayfalarından ekle
-  const months = getAvailableMonths(ss);
-  for (let m = 0; m < months.length; m++) {
-    const sheet = getSheetSafe(ss, months[m]);
-    if (sheet) {
-      const lastRow = sheet.getLastRow();
-      if (lastRow > 1) {
-        const bData = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-        for (let i = 0; i < bData.length; i++) {
-          const val = (bData[i][0] || "").toString().trim();
-          if (isRealBranch(val)) {
-            branchSet[val] = true;
+      try {
+        if (API_URL) {
+          const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "text/plain;charset=utf-8" },
+            body: JSON.stringify({
+              action: "uploadData",
+              adminPassword: currentAdminPassword,
+              month: targetMonth,
+              rows: pendingUploadRows
+            })
+          });
+          const result = await res.json();
+          if (result.success) {
+            showToast(`${targetMonth} sayfası başarıyla güncellendi!`, "success");
+            clearSelectedFile();
+            switchAdminTab("table");
+            fetchInitialBranchesAndMonths();
+            loadAdminDataForMonth(targetMonth);
+          } else {
+            showToast(result.error || "Yükleme başarısız", "error");
           }
+        } else {
+          await new Promise(r => setTimeout(r, 800));
+          showToast(`${targetMonth} sayfası işlendi (Demo)`, "success");
+          clearSelectedFile();
+          switchAdminTab("table");
         }
+      } catch (err) {
+        showToast("Bağlantı hatası: " + err.message, "error");
+      } finally {
+        btn.disabled = false;
+        btnText.textContent = "Google Sheets'e Yükle ve Şubelere Yayınla";
+        spinner.classList.add("hidden");
       }
     }
-  }
 
-  return Object.keys(branchSet).sort((a, b) => a.localeCompare(b, 'tr'));
-}
-
-/**
- * Şube şifresini SİSTEM_AYARLAR sayfasından kontrol eder
- */
-function verifyBranchPassword(ss, branchName, password) {
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return false;
-
-  const lastRow = settingsSheet.getLastRow();
-  if (lastRow <= 1) return false;
-
-  const data = settingsSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
-  const targetName = norm(branchName);
-  const targetPass = (password || "").toString().trim();
-
-  for (let i = 0; i < data.length; i++) {
-    const rowName = norm(data[i][0]);
-    if (rowName === targetName) {
-      const storedPass = (data[i][1] !== undefined && data[i][1] !== null ? data[i][1] : "").toString().trim();
-      return storedPass === targetPass;
+    // ==========================================
+    // YARDIMCI FORMAT FONKSİYONLARI
+    // ==========================================
+    function formatMoney(val, showDecimals = false) {
+      if (val === undefined || val === null || isNaN(val)) return "0 ₺";
+      const num = Number(val);
+      return num.toLocaleString('tr-TR', {
+        minimumFractionDigits: showDecimals ? 2 : 0,
+        maximumFractionDigits: showDecimals ? 2 : 0
+      }) + " ₺";
     }
-  }
 
-  return false;
-}
-
-/**
- * Yönetici şifresini doğrular (Varsayılan veya SİSTEM_AYARLAR sayfasındaki değer)
- */
-function verifyAdminPassword(ss, password) {
-  if (!password) return false;
-  const cleanPass = password.toString().trim();
-
-  if (cleanPass === DEFAULT_ADMIN_PASSWORD) return true;
-
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return false;
-
-  const lastRow = settingsSheet.getLastRow();
-  if (lastRow <= 1) return false;
-
-  const data = settingsSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  for (let i = 0; i < data.length; i++) {
-    const key = (data[i][0] || "").toString().trim();
-    if (key === "ADMIN_PASSWORD") {
-      const stored = (data[i][1] !== undefined && data[i][1] !== null ? data[i][1] : "").toString().trim();
-      return stored === cleanPass;
-    }
-  }
-
-  return false;
-}
-
-/**
- * SİSTEM_AYARLAR sayfasındaki tüm şube şifrelerini döner
- */
-function getAllBranchPasswords(ss) {
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return [];
-
-  const lastRow = settingsSheet.getLastRow();
-  if (lastRow <= 1) return [];
-
-  const data = settingsSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-  const list = [];
-
-  for (let i = 0; i < data.length; i++) {
-    const key = (data[i][0] || "").toString().trim();
-    if (isRealBranch(key)) {
-      const val = (data[i][1] !== undefined && data[i][1] !== null ? data[i][1] : "").toString().trim();
-      list.push({
-        name: key,
-        branch: key,
-        password: val
+    function formatPercent(val) {
+      if (val === undefined || val === null || isNaN(val)) return "0,00";
+      const num = Number(val);
+      return num.toLocaleString('tr-TR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
       });
     }
-  }
 
-  return list;
-}
+    function parseNumericLocal(val) {
+      if (val === undefined || val === null || val === "") return 0;
+      if (typeof val === "number") return val;
+      let str = val.toString().trim().replace(/\s+/g, '').replace(/[₺TLtl]/g, '');
 
-function updateSingleBranchPassword(ss, branchName, newPassword) {
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return;
+      if (str.indexOf('.') !== -1 && str.indexOf(',') !== -1) {
+        if (str.lastIndexOf(',') > str.lastIndexOf('.')) {
+          str = str.replace(/\./g, '').replace(',', '.');
+        } else {
+          str = str.replace(/,/g, '');
+        }
+      } else if (str.indexOf(',') !== -1) {
+        str = str.replace(',', '.');
+      } else if (str.indexOf('.') !== -1) {
+        const parts = str.split('.');
+        if (parts.length > 2 || (parts.length === 2 && parts[1].length === 3)) {
+          str = str.replace(/\./g, '');
+        }
+      }
+      const num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
 
-  const lastRow = settingsSheet.getLastRow();
-  const norm = (s) => (s || "").toString().trim().replace(/İ/g, "i").replace(/I/g, "ı").toLocaleLowerCase('tr-TR');
-  const targetName = norm(branchName);
-
-  if (lastRow > 1) {
-    const data = settingsSheet.getRange(2, 1, lastRow - 1, 2).getValues();
-    for (let i = 0; i < data.length; i++) {
-      const rowName = norm(data[i][0]);
-      if (rowName === targetName) {
-        settingsSheet.getRange(i + 2, 2).setNumberFormat("@").setValue(newPassword.toString().trim());
-        return;
+    function togglePasswordVisibility(inputId, iconId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (input.type === "password") {
+        input.type = "text";
+        icon.classList.remove("fa-eye");
+        icon.classList.add("fa-eye-slash");
+      } else {
+        input.type = "password";
+        icon.classList.remove("fa-eye-slash");
+        icon.classList.add("fa-eye");
       }
     }
-  }
 
-  const nextRow = lastRow + 1;
-  settingsSheet.getRange(nextRow, 1, 1, 2).setNumberFormat("@").setValues([[branchName.trim(), newPassword.toString().trim()]]);
-}
-
-function setAdminPassword(ss, newAdminPassword) {
-  const settingsSheet = getSheetSafe(ss, SETTINGS_SHEET_NAME);
-  if (!settingsSheet) return;
-
-  const lastRow = settingsSheet.getLastRow();
-  if (lastRow > 1) {
-    const data = settingsSheet.getRange(2, 1, lastRow - 1, 1).getValues();
-    for (let i = 0; i < data.length; i++) {
-      if ((data[i][0] || "").toString().trim() === "ADMIN_PASSWORD") {
-        settingsSheet.getRange(i + 2, 2).setNumberFormat("@").setValue(newAdminPassword.toString().trim());
-        return;
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      
+      let bg = "bg-slate-900 text-white";
+      let icon = "fa-circle-info text-blue-400";
+      if (type === "success") {
+        bg = "bg-emerald-800 text-white";
+        icon = "fa-circle-check text-emerald-300";
+      } else if (type === "error") {
+        bg = "bg-rose-900 text-white";
+        icon = "fa-circle-exclamation text-rose-300";
       }
+
+      toast.className = `${bg} px-4 py-3 rounded-2xl shadow-2xl flex items-center space-x-3 text-xs font-bold pointer-events-auto transform transition duration-300 translate-y-2 opacity-0 border border-white/10`;
+      toast.innerHTML = `
+        <i class="fa-solid ${icon} text-base flex-shrink-0"></i>
+        <span class="truncate">${message}</span>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
     }
-  }
 
-  const nextRow = lastRow + 1;
-  settingsSheet.getRange(nextRow, 1, 1, 2).setNumberFormat("@").setValues([["ADMIN_PASSWORD", newAdminPassword.toString().trim()]]);
-}
-
-function parseNumeric(val) {
-  if (val === null || val === undefined || val === "") return 0;
-  if (typeof val === "number") return val;
-
-  let str = val.toString().trim().replace(/[₺TLtl% ]/g, "");
-
-  if (str.indexOf(",") !== -1 && str.indexOf(".") !== -1) {
-    str = str.replace(/\./g, "").replace(",", ".");
-  } else if (str.indexOf(",") !== -1) {
-    str = str.replace(",", ".");
-  } else if (str.indexOf(".") !== -1 && str.split(".").length > 2) {
-    str = str.replace(/\./g, "");
-  }
-
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
+    function exportTableToExcel() {
+      const table = document.getElementById("mainAdminTable");
+      const wb = XLSX.utils.table_to_book(table, { sheet: currentAdminMonth });
+      XLSX.writeFile(wb, `Hedef_AVM_Kota_${currentAdminMonth.replace(/\s+/g, '_')}.xlsx`);
+    }
+  </script>
+</body>
+</html>
