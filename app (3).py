@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import os
 
 # -----------------------------------------------------------------------------
@@ -61,10 +60,7 @@ if os.path.exists(html_file_path):
         with open(html_file_path, 'r', encoding='utf-8') as f:
             html_code = f.read()
 
-        # DÜZELTME BURADA YAPILDI:
-        # 1. scrolling=True eklendi.
-        # 2. height değeri CSS ile ezilse de, Python tarafında bir yer kaplaması için bırakıldı.
-        components.html(html_code, height=1000, scrolling=True)
+        st.iframe(html_code, height=1000)
 
     except Exception as e:
         st.error(f"Hata: {e}")
