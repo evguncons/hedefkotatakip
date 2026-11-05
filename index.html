@@ -1772,8 +1772,17 @@
       }
     }
 
+    let adminDataRequestId = 0;
+
     async function loadAdminDataForMonth(month) {
       currentAdminMonth = month;
+      const requestId = ++adminDataRequestId;
+      const password = currentAdminPassword;
+      const monthSelect = document.getElementById("adminMonthSelect");
+      if (![...monthSelect.options].some(option => option.value === month)) {
+        monthSelect.add(new Option(month, month));
+      }
+      monthSelect.value = month;
       if (API_URL) {
         try {
           const res = await fetch(API_URL, {
@@ -1781,21 +1790,27 @@
             headers: { "Content-Type": "text/plain;charset=utf-8" },
             body: JSON.stringify({
               action: "adminLogin",
-              adminPassword: currentAdminPassword,
+              adminPassword: password,
               month: month
             })
           });
           const data = await res.json();
+          if (requestId !== adminDataRequestId || password !== currentAdminPassword) return false;
           if (data.success) {
             currentAdminBranches = data.branches || [];
             currentAdminTotals = data.totals;
             renderAdminTable(data.branches, data.totals);
             renderAdminProgress(data.progress);
+            return true;
           }
+          showToast(data.error || "Dönem verisi alınamadı", "error");
         } catch (err) {
-          showToast("Dönem verisi alınamadı", "error");
+          if (requestId === adminDataRequestId && password === currentAdminPassword) {
+            showToast("Dönem verisi alınamadı", "error");
+          }
         }
       }
+      return false;
     }
 
     function logoutAdmin() {
@@ -1999,13 +2014,14 @@
     }
 
     async function submitDataToGoogleSheets() {
+      const btn = document.getElementById("btnSendToSheets");
+      if (btn.disabled) return;
       if (pendingUploadRows.length === 0) {
         showToast("Lütfen önce bir Excel dosyası seçiniz", "error");
         return;
       }
 
       const targetMonth = getDefaultCurrentMonth();
-      const btn = document.getElementById("btnSendToSheets");
       const btnText = document.getElementById("btnSendText");
       const spinner = document.getElementById("uploadSpinner");
 
@@ -2027,11 +2043,15 @@
           });
           const result = await res.json();
           if (result.success) {
-            showToast(`${targetMonth} sayfası başarıyla güncellendi!`, "success");
             clearSelectedFile();
+            btnText.textContent = "Güncel veriler getiriliyor...";
+            const refreshed = await loadAdminDataForMonth(targetMonth);
             switchAdminTab("table");
-            fetchInitialBranchesAndMonths();
-            loadAdminDataForMonth(targetMonth);
+            if (refreshed) {
+              showToast("Veriler kaydedildi ve panel güncellendi.", "success");
+            } else {
+              showToast("Veriler kaydedildi, ancak panel verileri alınamadı. Dönemi yeniden seçerek tekrar deneyebilirsiniz.", "error");
+            }
           } else {
             showToast(result.error || "Yükleme başarısız", "error");
           }
