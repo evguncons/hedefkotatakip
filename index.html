@@ -439,7 +439,40 @@
               </div>
               <p class="text-xs text-rose-100/90 font-medium mt-1">Tüm Şubeler Toplam Oranı</p>
             </div>
+            <p class="text-center text-xs text-slate-500 mt-3">
+              Son veri güncellemesi <span id="adminLastUpdated" class="font-bold">Henüz kaydedilmedi</span>
+            </p>
           </div>
+
+          <section class="bg-white rounded-3xl p-4 sm:p-6 shadow-card border border-slate-100 space-y-4">
+            <div>
+              <h3 class="text-base font-black text-slate-900">Günlük ilerleme geçmişi</h3>
+              <p id="progressDescription" class="text-xs text-slate-500 mt-1">İlk Excel yüklemesinden sonra geçmiş oluşur.</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th class="p-3">Şube</th><th class="p-3">Son oran</th>
+                    <th class="p-3">Düne göre (puan)</th><th class="p-3">Ay içi değişim (puan)</th>
+                  </tr>
+                </thead>
+                <tbody id="progressSummaryBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <label for="progressBranchSelect" class="text-xs font-bold text-slate-600">Gün gün görüntüle</label>
+              <select id="progressBranchSelect" onchange="renderDailyProgressRows()" class="border border-slate-200 rounded-xl px-3 py-2 text-xs bg-white"></select>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-left">
+                <thead class="bg-slate-50 text-slate-600">
+                  <tr><th class="p-3">Tarih</th><th class="p-3">Günün son oranı</th><th class="p-3">Düne göre (puan)</th></tr>
+                </thead>
+                <tbody id="progressHistoryBody" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+          </section>
 
           <!-- Tablo Konteyneri & Araç Çubuğu -->
           <div class="bg-white rounded-3xl shadow-card border border-slate-100 overflow-hidden">
@@ -1226,8 +1259,92 @@
       document.getElementById("adminDashboard").classList.remove("hidden");
 
       renderAdminTable(data.branches, data.totals);
+      renderAdminProgress(data.progress);
       renderBranchPasswords(data.passwords);
       renderLoginLogsUI(currentAdminLogs, currentAdminLastLogins);
+    }
+
+    let currentDailyProgress = [];
+
+    function previousProgressDate(day) {
+      const date = new Date(day + "T12:00:00Z");
+      date.setUTCDate(date.getUTCDate() - 1);
+      return date.toISOString().slice(0, 10);
+    }
+
+    function progressRate(snapshot, branch) {
+      if (!snapshot) return null;
+      if (branch === "") return snapshot.totalOran;
+      const entry = snapshot.branches.find(item => item.name === branch);
+      return entry ? entry.oran : null;
+    }
+
+    function progressChange(value, previous) {
+      if (value == null || previous == null) return "—";
+      const difference = Number(value) - Number(previous);
+      return (difference > 0 ? "+" : "") + formatPercent(difference);
+    }
+
+    function addProgressRow(tbody, values) {
+      const row = document.createElement("tr");
+      values.forEach(value => {
+        const cell = document.createElement("td");
+        cell.className = "p-3 whitespace-nowrap";
+        cell.textContent = value;
+        row.appendChild(cell);
+      });
+      tbody.appendChild(row);
+    }
+
+    function renderAdminProgress(progress) {
+      currentDailyProgress = (progress?.days || []).slice().sort((a, b) => a.date.localeCompare(b.date));
+      document.getElementById("adminLastUpdated").textContent = progress?.lastUpdated || "Henüz kaydedilmedi";
+      const summary = document.getElementById("progressSummaryBody");
+      summary.replaceChildren();
+      const select = document.getElementById("progressBranchSelect");
+      const selected = select.value;
+      select.replaceChildren(new Option("Tüm şubeler toplamı", ""));
+      const names = [...new Set(currentDailyProgress.flatMap(day => day.branches.map(branch => branch.name)))];
+      names.sort((a, b) => a.localeCompare(b, "tr")).forEach(name => select.add(new Option(name, name)));
+      if (names.includes(selected)) select.value = selected;
+      const latest = currentDailyProgress[currentDailyProgress.length - 1];
+      const description = document.getElementById("progressDescription");
+      if (!latest) {
+        description.textContent = "Bu dönemde henüz geçmiş kaydı yok. İlk Excel yüklemesiyle kayıt başlar.";
+        addProgressRow(summary, ["Henüz kayıt yok", "—", "—", "—"]);
+      } else {
+        const first = currentDailyProgress[0];
+        const yesterday = currentDailyProgress.find(day => day.date === previousProgressDate(latest.date));
+        description.textContent = latest.date.split("-").reverse().join(".") +
+          " tarihli son yükleme karşılaştırılıyor. Ay içi değişim, " +
+          first.date.split("-").reverse().join(".") + " tarihli ilk kayda göredir. Eksik günlerde — gösterilir.";
+        const branches = ["", ...latest.branches.map(branch => branch.name)];
+        branches.forEach(branch => {
+          const value = progressRate(latest, branch);
+          addProgressRow(summary, [
+            branch || "GENEL TOPLAM", "%" + formatPercent(value),
+            progressChange(value, progressRate(yesterday, branch)),
+            progressChange(value, progressRate(first, branch))
+          ]);
+        });
+      }
+      renderDailyProgressRows();
+    }
+
+    function renderDailyProgressRows() {
+      const tbody = document.getElementById("progressHistoryBody");
+      const branch = document.getElementById("progressBranchSelect").value;
+      tbody.replaceChildren();
+      [...currentDailyProgress].reverse().forEach(day => {
+        const yesterday = currentDailyProgress.find(item => item.date === previousProgressDate(day.date));
+        const value = progressRate(day, branch);
+        addProgressRow(tbody, [
+          day.date.split("-").reverse().join("."),
+          value == null ? "—" : "%" + formatPercent(value),
+          progressChange(value, progressRate(yesterday, branch))
+        ]);
+      });
+      if (!currentDailyProgress.length) addProgressRow(tbody, ["Henüz kayıt yok", "—", "—"]);
     }
 
     function renderAdminTable(branches, totals) {
@@ -1673,6 +1790,7 @@
             currentAdminBranches = data.branches || [];
             currentAdminTotals = data.totals;
             renderAdminTable(data.branches, data.totals);
+            renderAdminProgress(data.progress);
           }
         } catch (err) {
           showToast("Dönem verisi alınamadı", "error");
